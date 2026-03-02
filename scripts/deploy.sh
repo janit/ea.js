@@ -2,16 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# ── Prevent concurrent deploys ───────────────────────────────────────────────
-LOCK_FILE="/tmp/echelon-deploy.lock"
-exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  echo "ERROR: Another deploy is already running (lock: $LOCK_FILE)" >&2
-  exit 1
-fi
-
 IMAGE="echelon"
-CONTAINER_PREFIX="echelon"
 PORT="1947"
 BIND_ADDRESS="127.0.0.1"
 ALLOWED_IPS=""
@@ -36,6 +27,23 @@ prune_images() {
   docker image prune -a -f --filter "until=1h" >/dev/null 2>&1 || true
 }
 
+# Load deploy-relevant variables from an env file
+load_deploy_vars() {
+  local envfile="$1"
+  [[ -f "$envfile" ]] || return 0
+  local val
+  val=$(grep -E '^CPU_CORES=' "$envfile" | cut -d= -f2 | tr -d '[:space:]' || true)
+  [[ -n "$val" ]] && CPU_CORES="$val"
+  val=$(grep -E '^BIND_ADDRESS=' "$envfile" | cut -d= -f2 | tr -d '[:space:]' || true)
+  [[ -n "$val" ]] && BIND_ADDRESS="$val"
+  val=$(grep -E '^ALLOWED_IPS=' "$envfile" | cut -d= -f2 | tr -d '[:space:]' || true)
+  [[ -n "$val" ]] && ALLOWED_IPS="$val"
+  val=$(grep -E '^DOCKER_NETWORK=' "$envfile" | cut -d= -f2 | tr -d '[:space:]' || true)
+  [[ -n "$val" ]] && NETWORK="$val"
+  val=$(grep -E '^ECHELON_PORT=' "$envfile" | cut -d= -f2 | tr -d '[:space:]' || true)
+  [[ -n "$val" ]] && PORT="$val"
+}
+
 # ── Validate ─────────────────────────────────────────────────────────────────
 
 VERSION=""
@@ -44,18 +52,7 @@ REDEPLOY=false
 SEAL_OF_APPROVAL=false
 CPU_CORES=1
 NETWORK=""
-
-# Load defaults from .env if present
-if [[ -f .env ]]; then
-  env_cores=$(grep -E '^CPU_CORES=' .env | cut -d= -f2 | tr -d '[:space:]' || true)
-  [[ -n "$env_cores" ]] && CPU_CORES="$env_cores"
-  env_bind=$(grep -E '^BIND_ADDRESS=' .env | cut -d= -f2 | tr -d '[:space:]' || true)
-  [[ -n "$env_bind" ]] && BIND_ADDRESS="$env_bind"
-  env_ips=$(grep -E '^ALLOWED_IPS=' .env | cut -d= -f2 | tr -d '[:space:]' || true)
-  [[ -n "$env_ips" ]] && ALLOWED_IPS="$env_ips"
-  env_net=$(grep -E '^DOCKER_NETWORK=' .env | cut -d= -f2 | tr -d '[:space:]' || true)
-  [[ -n "$env_net" ]] && NETWORK="$env_net"
-fi
+INSTANCE_NAME=""
 
 show_help() {
   echo "Usage: $0 [<tag>] [OPTIONS]"
@@ -66,6 +63,7 @@ show_help() {
   echo "  <tag>                   Git tag to deploy (e.g. v26-03-01)"
   echo ""
   echo "Options:"
+  echo "  --name NAME             Instance name for multi-instance deploys"
   echo "  --deploy-latest         Deploy the most recent git tag"
   echo "  --seal-of-approval      Deploy current branch/HEAD without a tag (quick testing)"
   echo "  --cpucores N            Limit container to N CPU cores (default from .env or 1)"
@@ -73,11 +71,16 @@ show_help() {
   echo "  --network NAME          Join Docker network (for Postgres connectivity)"
   echo "  --help                  Show this help message"
   echo ""
+  echo "Multi-instance:"
+  echo "  Each --name gets isolated containers, data dir, and env file."
+  echo "  e.g. --name trippi → container echelon-trippi-*, data-trippi/, .env.trippi"
+  echo ""
   echo "Examples:"
   echo "  $0 v26-03-01                     Deploy specific tag"
   echo "  $0 --deploy-latest               Deploy latest tag"
   echo "  $0 --deploy-latest --cpucores 2  Latest tag, 2 cores"
   echo "  $0 --seal-of-approval            Deploy current branch as-is"
+  echo "  $0 --name trippi --seal-of-approval  Named instance deploy"
   exit 0
 }
 
@@ -89,9 +92,68 @@ while [[ $# -gt 0 ]]; do
     --redeploy) REDEPLOY=true; shift ;;
     --cpucores) CPU_CORES="$2"; shift 2 ;;
     --network) NETWORK="$2"; shift 2 ;;
+    --name) INSTANCE_NAME="$2"; shift 2 ;;
     *) VERSION="$1"; shift ;;
   esac
 done
+
+# ── Resolve instance name (CLI flag → .env → default) ───────────────────────
+
+if [[ -z "$INSTANCE_NAME" && -f .env ]]; then
+  env_name=$(grep -E '^INSTANCE_NAME=' .env | cut -d= -f2 | tr -d '[:space:]' || true)
+  [[ -n "$env_name" ]] && INSTANCE_NAME="$env_name"
+fi
+
+# ── Validate instance name ───────────────────────────────────────────────────
+
+if [[ -n "$INSTANCE_NAME" ]]; then
+  if ! [[ "$INSTANCE_NAME" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+    echo "ERROR: --name must be lowercase alphanumeric with optional hyphens (e.g. trippi, my-site)" >&2
+    exit 1
+  fi
+  if [[ "$INSTANCE_NAME" =~ ^(v[0-9]|dev(-|$)|smoke(-|$)) ]]; then
+    echo "ERROR: --name must not start with v<digit>, dev, or smoke (reserved prefixes)" >&2
+    exit 1
+  fi
+fi
+
+# ── Compute instance-scoped paths ────────────────────────────────────────────
+
+if [[ -n "$INSTANCE_NAME" ]]; then
+  CONTAINER_PREFIX="echelon-${INSTANCE_NAME}"
+  DATA_DIR="data-${INSTANCE_NAME}"
+  ENV_FILE=".env.${INSTANCE_NAME}"
+  LOCK_FILE="/tmp/echelon-${INSTANCE_NAME}-deploy.lock"
+  # Container stop filter: only match this named instance's containers
+  STOP_FILTER="^echelon-${INSTANCE_NAME}-"
+else
+  CONTAINER_PREFIX="echelon"
+  DATA_DIR="data"
+  ENV_FILE=".env"
+  LOCK_FILE="/tmp/echelon-deploy.lock"
+  # Container stop filter: match default instance only (tagged or dev), not named instances
+  STOP_FILTER="^echelon-(v|dev-)"
+fi
+
+# ── Prevent concurrent deploys ───────────────────────────────────────────────
+
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "ERROR: Another deploy is already running (lock: $LOCK_FILE)" >&2
+  exit 1
+fi
+
+# ── Load env vars ────────────────────────────────────────────────────────────
+
+if [[ -n "$INSTANCE_NAME" && -f "$ENV_FILE" ]]; then
+  load_deploy_vars "$ENV_FILE"
+elif [[ -n "$INSTANCE_NAME" && ! -f "$ENV_FILE" ]]; then
+  info "Instance env file $ENV_FILE not found, falling back to .env"
+  ENV_FILE=".env"
+  load_deploy_vars ".env"
+else
+  load_deploy_vars ".env"
+fi
 
 if ! [[ "$CPU_CORES" =~ ^[0-9]+$ ]] || [[ "$CPU_CORES" -lt 1 ]]; then
   die "--cpucores must be a positive integer"
@@ -169,11 +231,11 @@ else
   green "Build succeeded"
 fi
 
-# ── Load env vars from .env ─────────────────────────────────────────────────
+# ── Load env vars from env file ──────────────────────────────────────────────
 
 ENV_ARGS=()
-if [[ -f .env ]]; then
-  info "Loading env vars from .env"
+if [[ -f "$ENV_FILE" ]]; then
+  info "Loading env vars from $ENV_FILE"
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "${line// /}" || "$line" == \#* ]] && continue
     [[ "$line" != *"="* ]] && continue
@@ -182,7 +244,7 @@ if [[ -f .env ]]; then
     value="${value%\"}" ; value="${value#\"}"
     value="${value%\'}" ; value="${value#\'}"
     ENV_ARGS+=(-e "$key=$value")
-  done < .env
+  done < "$ENV_FILE"
 fi
 
 # ── Docker network ──────────────────────────────────────────────────────────
@@ -198,8 +260,8 @@ fi
 CONTAINER="${CONTAINER_PREFIX}-${GIT_TAG}_cpu-${CPU_CORES}"
 
 # Ensure data directory exists and is writable by the container user (UID 1001)
-mkdir -p data
-chown -R 1001:1001 data
+mkdir -p "$DATA_DIR"
+chown -R 1001:1001 "$DATA_DIR"
 
 if [[ "$REDEPLOY" == "true" ]]; then
   info "Skipping smoke test (--redeploy)"
@@ -210,7 +272,7 @@ else
   docker run -d \
     --name "$SMOKE_NAME" \
     -p "127.0.0.1:0:$PORT" \
-    -v "$(pwd)/data:/app/data" \
+    -v "$(pwd)/${DATA_DIR}:/app/data" \
     --add-host=host.docker.internal:host-gateway \
     --cpuset-cpus="0-$((CPU_CORES - 1))" \
     "${NETWORK_ARGS[@]+"${NETWORK_ARGS[@]}"}" \
@@ -254,14 +316,14 @@ else
   # ── Full smoke + fuzz + perf test suite ────────────────────────────────────
   info "Running full smoke test suite"
   SMOKE_SECRET=""
-  if [[ -f .env ]]; then
-    SMOKE_SECRET=$(grep -E '^ECHELON_SECRET=' .env | cut -d= -f2 | tr -d '[:space:]' || true)
+  if [[ -f "$ENV_FILE" ]]; then
+    SMOKE_SECRET=$(grep -E '^ECHELON_SECRET=' "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]' || true)
   fi
 
   SMOKE_ARGS=("http://127.0.0.1:${SMOKE_PORT}")
   [[ -n "$SMOKE_SECRET" ]] && SMOKE_ARGS+=(--secret "$SMOKE_SECRET")
 
-  if ! ECHELON_SECRET="$SMOKE_SECRET" bash "$(dirname "$0")/smoke-test.sh" "${SMOKE_ARGS[@]}"; then
+  if ! ECHELON_SECRET="$SMOKE_SECRET" ECHELON_DATA_DIR="$(pwd)/${DATA_DIR}" bash "$(dirname "$0")/smoke-test.sh" "${SMOKE_ARGS[@]}"; then
     red "Smoke test suite FAILED"
     red "Container logs (last 30 lines):"
     docker logs "$SMOKE_NAME" --tail 30 2>&1 || true
@@ -293,8 +355,8 @@ fi
 
 # ── Deploy: stop old, start new ─────────────────────────────────────────────
 
-# Stop any running echelon container (tagged or dev)
-OLD=$(docker ps -q -f "name=^${CONTAINER_PREFIX}-" | head -1)
+# Stop any running container matching this instance's pattern
+OLD=$(docker ps -q -f "name=${STOP_FILTER}" | head -1)
 OLD_NAME=""
 if [[ -n "$OLD" ]]; then
   OLD_NAME=$(docker inspect --format '{{.Name}}' "$OLD" | sed 's|^/||')
@@ -313,7 +375,7 @@ info "Starting $CONTAINER"
 docker run -d \
   --name "$CONTAINER" \
   -p "${BIND_ADDRESS}:${PORT}:${PORT}" \
-  -v "$(pwd)/data:/app/data" \
+  -v "$(pwd)/${DATA_DIR}:/app/data" \
   -e "VERSION=$VERSION" \
   --add-host=host.docker.internal:host-gateway \
   --cpuset-cpus="0-$((CPU_CORES - 1))" \
@@ -383,3 +445,5 @@ echo "  Image:     $IMAGE:$GIT_TAG"
 echo "  Container: $CONTAINER"
 echo "  Port:      ${BIND_ADDRESS}:${PORT}"
 echo "  CPU cores: $CPU_CORES"
+echo "  Data dir:  $DATA_DIR"
+[[ -n "$INSTANCE_NAME" ]] && echo "  Instance:  $INSTANCE_NAME"

@@ -46,7 +46,7 @@ BASE_URL="${BASE_URL%/}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BASELINE_FILE="$PROJECT_ROOT/data/perf-baseline.json"
+BASELINE_FILE="${ECHELON_DATA_DIR:-$PROJECT_ROOT/data}/perf-baseline.json"
 
 # ── Colour helpers ───────────────────────────────────────────────────────────
 

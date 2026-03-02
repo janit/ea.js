@@ -3,15 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 IMAGE="echelon"
-CONTAINER_PREFIX="echelon"
 PORT="1947"
 BIND_ADDRESS="127.0.0.1"
-
-# Load BIND_ADDRESS from .env if present
-if [[ -f .env ]]; then
-  env_bind=$(grep -E '^BIND_ADDRESS=' .env | cut -d= -f2 | tr -d '[:space:]')
-  [[ -n "$env_bind" ]] && BIND_ADDRESS="$env_bind"
-fi
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -20,6 +13,78 @@ green() { printf '\033[1;32m%s\033[0m\n' "$*"; }
 info()  { printf '\033[1;34m→ %s\033[0m\n' "$*"; }
 
 die() { red "ERROR: $*" >&2; exit 1; }
+
+# ── Argument parsing ─────────────────────────────────────────────────────────
+
+INSTANCE_NAME=""
+VERSION=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --name) INSTANCE_NAME="$2"; shift 2 ;;
+    --help|-h)
+      echo "Usage: $0 [--name NAME] [<version>]"
+      echo ""
+      echo "Roll back to a previous Echelon Analytics Docker image."
+      echo ""
+      echo "Options:"
+      echo "  --name NAME    Instance name (for multi-instance deploys)"
+      echo "  <version>      Tag to roll back to (e.g. v26-03-01)"
+      echo ""
+      echo "With no arguments, lists available versions."
+      exit 0
+      ;;
+    *) VERSION="$1"; shift ;;
+  esac
+done
+
+# ── Resolve instance name (CLI flag → .env → default) ───────────────────────
+
+if [[ -z "$INSTANCE_NAME" && -f .env ]]; then
+  env_name=$(grep -E '^INSTANCE_NAME=' .env | cut -d= -f2 | tr -d '[:space:]' || true)
+  [[ -n "$env_name" ]] && INSTANCE_NAME="$env_name"
+fi
+
+# ── Validate instance name ───────────────────────────────────────────────────
+
+if [[ -n "$INSTANCE_NAME" ]]; then
+  if ! [[ "$INSTANCE_NAME" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+    die "--name must be lowercase alphanumeric with optional hyphens (e.g. trippi, my-site)"
+  fi
+  if [[ "$INSTANCE_NAME" =~ ^(v[0-9]|dev(-|$)|smoke(-|$)) ]]; then
+    die "--name must not start with v<digit>, dev, or smoke (reserved prefixes)"
+  fi
+fi
+
+# ── Compute instance-scoped paths ────────────────────────────────────────────
+
+if [[ -n "$INSTANCE_NAME" ]]; then
+  CONTAINER_PREFIX="echelon-${INSTANCE_NAME}"
+  DATA_DIR="data-${INSTANCE_NAME}"
+  ENV_FILE=".env.${INSTANCE_NAME}"
+  # Container stop filter: only match this named instance's containers
+  STOP_FILTER="^echelon-${INSTANCE_NAME}-"
+else
+  CONTAINER_PREFIX="echelon"
+  DATA_DIR="data"
+  ENV_FILE=".env"
+  # Container stop filter: match default instance only (tagged or dev), not named instances
+  STOP_FILTER="^echelon-(v|dev-)"
+fi
+
+# ── Load env vars ────────────────────────────────────────────────────────────
+
+if [[ -n "$INSTANCE_NAME" && ! -f "$ENV_FILE" ]]; then
+  info "Instance env file $ENV_FILE not found, falling back to .env"
+  ENV_FILE=".env"
+fi
+
+if [[ -f "$ENV_FILE" ]]; then
+  val=$(grep -E '^BIND_ADDRESS=' "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]' || true)
+  [[ -n "$val" ]] && BIND_ADDRESS="$val"
+  val=$(grep -E '^ECHELON_PORT=' "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]' || true)
+  [[ -n "$val" ]] && PORT="$val"
+fi
 
 # ── List available versions ──────────────────────────────────────────────────
 
@@ -31,7 +96,7 @@ list_versions() {
     | grep -v 'latest'
   echo ""
 
-  OLD=$(docker ps -q -f "name=^${CONTAINER_PREFIX}-v" | head -1)
+  OLD=$(docker ps -q -f "name=${STOP_FILTER}" | head -1)
   if [[ -n "$OLD" ]]; then
     OLD_NAME=$(docker inspect --format '{{.Name}}' "$OLD" | sed 's|^/||')
     echo "Currently running: $OLD_NAME"
@@ -40,18 +105,17 @@ list_versions() {
   fi
 }
 
-# ── No argument: list and exit ───────────────────────────────────────────────
+# ── No version: list and exit ────────────────────────────────────────────────
 
-if [[ -z "${1:-}" ]]; then
+if [[ -z "$VERSION" ]]; then
   list_versions
   echo ""
-  echo "Usage: $0 <version>  (e.g. $0 v26-03-01)"
+  echo "Usage: $0 [--name NAME] <version>  (e.g. $0 v26-03-01)"
   exit 0
 fi
 
 # ── Rollback to specified version ────────────────────────────────────────────
 
-VERSION="$1"
 [[ "$VERSION" != v* ]] && VERSION="v$VERSION"
 CONTAINER="${CONTAINER_PREFIX}-${VERSION}"
 
@@ -65,7 +129,7 @@ fi
 
 info "Rolling back to $IMAGE:$VERSION"
 
-OLD=$(docker ps -q -f "name=^${CONTAINER_PREFIX}-v" | head -1)
+OLD=$(docker ps -q -f "name=${STOP_FILTER}" | head -1)
 if [[ -n "$OLD" ]]; then
   OLD_NAME=$(docker inspect --format '{{.Name}}' "$OLD" | sed 's|^/||')
   info "Stopping $OLD_NAME (30s grace period)"
@@ -73,9 +137,9 @@ if [[ -n "$OLD" ]]; then
   docker rm "$OLD" >/dev/null
 fi
 
-# Load env vars from .env (handles values containing =)
+# Load env vars from env file (handles values containing =)
 ENV_ARGS=()
-if [[ -f .env ]]; then
+if [[ -f "$ENV_FILE" ]]; then
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "${line// /}" || "$line" == \#* ]] && continue
     [[ "$line" != *"="* ]] && continue
@@ -84,14 +148,14 @@ if [[ -f .env ]]; then
     value="${value%\"}" ; value="${value#\"}"
     value="${value%\'}" ; value="${value#\'}"
     ENV_ARGS+=(-e "$key=$value")
-  done < .env
+  done < "$ENV_FILE"
 fi
 
 info "Starting $CONTAINER"
 docker run -d \
   --name "$CONTAINER" \
   -p "${BIND_ADDRESS}:${PORT}:${PORT}" \
-  -v "$(pwd)/data:/app/data" \
+  -v "$(pwd)/${DATA_DIR}:/app/data" \
   -e "VERSION=$VERSION" \
   --add-host=host.docker.internal:host-gateway \
   "${ENV_ARGS[@]+"${ENV_ARGS[@]}"}" \

@@ -164,7 +164,7 @@ const BURST_THRESHOLD = 15;
 /** Detailed bot score result with per-factor breakdown. */
 export interface BotScoreResult {
   score: number;
-  detail: Record<string, number>;
+  detail: Record<string, number | string>;
 }
 
 /** Compute a bot score with per-factor breakdown. */

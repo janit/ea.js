@@ -29,6 +29,7 @@ import { tokenPenalty, verifyToken } from "./challenge.ts";
 import { BufferedWriter } from "./buffered-writer.ts";
 import { isUtmCampaignActive, refreshUtmCampaigns } from "./utm.ts";
 import { refreshConsentCss } from "./consent-css.ts";
+import { debug } from "./debug.ts";
 
 // 1x1 transparent GIF (43 bytes)
 export const PIXEL = new Uint8Array([
@@ -334,8 +335,21 @@ export async function handleBeacon(
     const tok = url.searchParams.get("tok");
     const tokenResult = await verifyToken(tok, siteId, sessionId ?? "");
     const powPenalty = tokenPenalty(tokenResult);
-    if (powPenalty > 0) scoreResult.detail.pow = powPenalty;
+    if (powPenalty > 0) {
+      scoreResult.detail.pow = powPenalty;
+      scoreResult.detail.pow_result = tokenResult;
+    }
     const botScore = Math.min(scoreResult.score + powPenalty, 100);
+
+    debug("beacon", "pageview", {
+      path,
+      siteId,
+      sid: sessionId?.slice(0, 8) + "...",
+      tok: tok ? tok.slice(0, 8) + "..." : "(none)",
+      powResult: tokenResult,
+      botScore,
+      detail: scoreResult.detail,
+    });
 
     const isPwa = url.searchParams.get("pwa") === "1";
     const osName = parseOS(req.headers.get("user-agent") ?? undefined);

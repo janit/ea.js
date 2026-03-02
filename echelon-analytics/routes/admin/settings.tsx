@@ -1,10 +1,12 @@
 import { page } from "fresh";
 import { define } from "../../utils.ts";
 import { AdminNav } from "../../components/AdminNav.tsx";
-import { PUBLIC_MODE, TELEMETRY_OVERRIDE } from "../../lib/config.ts";
+import { DEBUG, PUBLIC_MODE, TELEMETRY_OVERRIDE } from "../../lib/config.ts";
 import { getLiveStats } from "../../lib/admin-stats.ts";
 import ConsentCssEditor from "../../islands/ConsentCssEditor.tsx";
+import DebugToggle from "../../islands/DebugToggle.tsx";
 import TelemetryToggle from "../../islands/TelemetryToggle.tsx";
+import { isDebugEnabled } from "../../lib/debug.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -21,13 +23,14 @@ export const handler = define.handlers({
       site,
       consentCss: row?.consent_css ?? "",
       liveStats,
+      debugEnabled: isDebugEnabled(),
     };
     return page();
   },
 });
 
 export default define.page<typeof handler>(function SettingsPage({ state }) {
-  const { site, consentCss, liveStats } = state.pageData;
+  const { site, consentCss, liveStats, debugEnabled } = state.pageData;
 
   return (
     <AdminNav
@@ -62,6 +65,20 @@ export default define.page<typeof handler>(function SettingsPage({ state }) {
           and <code class="text-[var(--ea-text)]">data-cookie</code>{" "}
           on the script tag.
         </p>
+      </div>
+
+      <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] p-4 mb-4">
+        <h3 class="text-sm text-[var(--ea-primary)] mb-3">Debug Logging</h3>
+        <p class="text-xs text-[var(--ea-muted)] mb-3">
+          Verbose server + client console output for diagnosing PoW
+          verification, bot scoring, beacon/event processing, and tracker
+          behavior. Resets on restart.
+        </p>
+        <DebugToggle
+          initialState={debugEnabled}
+          envOverride={DEBUG}
+          readOnly={PUBLIC_MODE}
+        />
       </div>
 
       <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] p-4 mb-4">

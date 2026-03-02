@@ -1,10 +1,13 @@
 legacy
 data/*
 !data/.gitkeep
+data-*/
 *.db
 *.db-wal
 *.db-shm
 .env
+.env.*
+!.env.example
 .claude/*
 !.claude/settings.json
 node_modules/

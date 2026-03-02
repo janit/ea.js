@@ -1,4 +1,5 @@
 echelon.example.com {
+	# Default port 1947; override with ECHELON_PORT in .env
 	reverse_proxy 127.0.0.1:1947
 
 	encode gzip zstd
@@ -22,3 +23,33 @@ echelon.example.com {
 		max_size 64KB
 	}
 }
+
+# ── Multi-instance example ──────────────────────────────────────────────────
+#
+# To run multiple Echelon instances on the same server, deploy each with
+# a --name flag and a separate .env file with a unique ECHELON_PORT:
+#
+#   cp .env .env.trippi && $EDITOR .env.trippi   # set ECHELON_PORT=1951
+#   scripts/deploy.sh --name trippi --seal-of-approval
+#
+# Then add a second server block here:
+#
+# echelon-two.example.com {
+# 	reverse_proxy 127.0.0.1:1951
+#
+# 	encode gzip zstd
+#
+# 	header {
+# 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+# 		Referrer-Policy strict-origin-when-cross-origin
+# 		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+# 		-Server
+# 	}
+#
+# 	@tracking {
+# 		path /b.gif /e /api/ingest
+# 	}
+# 	request_body @tracking {
+# 		max_size 64KB
+# 	}
+# }

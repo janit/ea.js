@@ -27,6 +27,7 @@ import { anonymizeEvent, shouldAnonymize } from "./anonymize.ts";
 import { tokenPenalty, verifyToken } from "./challenge.ts";
 import { BufferedWriter } from "./buffered-writer.ts";
 import { isUtmCampaignActive } from "./utm.ts";
+import { debug } from "./debug.ts";
 
 interface ClientEvent {
   type: string;
@@ -236,22 +237,32 @@ export async function handleEvents(
   // PoW token verification
   const tok = typeof body.tok === "string" ? body.tok : null;
   const firstSession = events[0]?.sessionId;
-  const tokenResult = await verifyToken(
-    tok,
-    siteId,
-    typeof firstSession === "string" ? firstSession : "",
-  );
+  const sessionIdForPow = typeof firstSession === "string" ? firstSession : "";
+  const tokenResult = await verifyToken(tok, siteId, sessionIdForPow);
   const powPenalty = tokenPenalty(tokenResult);
-  if (powPenalty > 0) scoreResult.detail.pow = powPenalty;
+  if (powPenalty > 0) {
+    scoreResult.detail.pow = powPenalty;
+    scoreResult.detail.pow_result = tokenResult;
+  }
   const botScore = Math.min(scoreResult.score + powPenalty, 100);
   const botScoreDetail = JSON.stringify(scoreResult.detail);
+
+  const limit = Math.min(events.length, MAX_EVENTS_PER_REQUEST);
+
+  debug("events", "batch", {
+    siteId,
+    sid: sessionIdForPow.slice(0, 8) + "...",
+    tok: tok ? tok.slice(0, 8) + "..." : "(none)",
+    powResult: tokenResult,
+    botScore,
+    eventTypes: events.slice(0, limit).map((e) => e.type),
+    visitorId: visitorId?.slice(0, 8) + "...",
+  });
 
   // Discard if bot score exceeds threshold (when configured)
   if (BOT_DISCARD_THRESHOLD > 0 && botScore >= BOT_DISCARD_THRESHOLD) {
     return new Response(null, { status: 204 });
   }
-
-  const limit = Math.min(events.length, MAX_EVENTS_PER_REQUEST);
 
   for (let i = 0; i < limit; i++) {
     const ev = events[i];

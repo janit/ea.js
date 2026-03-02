@@ -1,5 +1,6 @@
 // Echelon Analytics — Centralized Configuration
 
+export const DEBUG = Deno.env.get("ECHELON_DEBUG") === "true";
 export const VERSION = Deno.env.get("VERSION") ?? "dev";
 export const PORT = parseInt(Deno.env.get("ECHELON_PORT") ?? "1947");
 export const DB_PATH = Deno.env.get("ECHELON_DB_PATH") ?? "./echelon.db";

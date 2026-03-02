@@ -43,7 +43,8 @@ ENV VERSION=${VERSION}
 ARG GIT_HASH=
 ENV GIT_HASH=${GIT_HASH}
 
-EXPOSE 1947
+ENV ECHELON_PORT=1947
+EXPOSE ${ECHELON_PORT}
 
 # PID 1 init — proper signal propagation to child processes
 RUN apt-get update && apt-get install -y --no-install-recommends tini \
@@ -62,8 +63,8 @@ ENV DENO_JOBS=4
 STOPSIGNAL SIGTERM
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD deno eval "const r=await fetch('http://127.0.0.1:1947/api/health');if(!r.ok)Deno.exit(1)" || exit 1
+  CMD deno eval "const r=await fetch('http://127.0.0.1:'+(Deno.env.get('ECHELON_PORT')||'1947')+'/api/health');if(!r.ok)Deno.exit(1)" || exit 1
 
 USER echelon
 # Single worker — do NOT add --parallel (in-memory state: sessions, buffers, rate limits)
-CMD ["deno", "serve", "-A", "--port", "1947", "_fresh/server.js"]
+CMD ["sh", "-c", "exec deno serve -A --port=${ECHELON_PORT} _fresh/server.js"]

@@ -16,6 +16,7 @@ const FACTOR_LABELS: Record<string, string> = {
   screen: "Screen",
   referrer: "Referrer",
   pow: "PoW Token",
+  pow_result: "PoW Result",
 };
 
 function scoreBadge(score: number) {
@@ -29,9 +30,9 @@ function scoreBadge(score: number) {
 
 export default function BotScoreDetail({ viewId, eventId, score }: Props) {
   const open = useSignal(false);
-  const detail = useSignal<Record<string, number> | null | undefined>(
-    undefined,
-  );
+  const detail = useSignal<
+    Record<string, number | string> | null | undefined
+  >(undefined);
   const loading = useSignal(false);
   const error = useSignal<string | null>(null);
 
@@ -94,7 +95,7 @@ export default function BotScoreDetail({ viewId, eventId, score }: Props) {
                         {FACTOR_LABELS[key] ?? key}
                       </td>
                       <td class="tabular-nums text-[var(--ea-primary)]">
-                        +{val}
+                        {typeof val === "string" ? val : `+${val}`}
                       </td>
                     </tr>
                   ))}

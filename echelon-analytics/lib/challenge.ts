@@ -10,6 +10,7 @@ import {
   SECRET,
 } from "./config.ts";
 import { buildChallengeWasm, generateParams } from "./challenge-wasm.ts";
+import { debug } from "./debug.ts";
 
 const ROTATION_MS = 6 * 60 * 60 * 1000; // 6 hours
 const encoder = new TextEncoder();
@@ -49,11 +50,17 @@ function minuteBucket(offsetMinutes = 0): string {
 /** Generate a challenge string for the current minute bucket. */
 export async function generateChallenge(): Promise<string> {
   const key = await getHmacKey();
-  const data = encoder.encode(minuteBucket());
+  const bucket = minuteBucket();
+  const data = encoder.encode(bucket);
   const sig = await crypto.subtle.sign("HMAC", key, data);
-  return Array.from(new Uint8Array(sig).slice(0, 16))
+  const challenge = Array.from(new Uint8Array(sig).slice(0, 16))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+  debug("pow", "generateChallenge", {
+    bucket,
+    challenge: challenge.slice(0, 8) + "...",
+  });
+  return challenge;
 }
 
 // ── WASM instance management ────────────────────────────────────────────────
@@ -77,6 +84,7 @@ async function createSlot(): Promise<WasmSlot> {
   const instance = await WebAssembly.instantiate(module);
   // Base64 encode the WASM for embedding in the tracker JS
   const wasmB64 = btoa(String.fromCharCode(...wasm));
+  debug("pow", "createSlot", { wasmSize: wasm.length, createdAt: Date.now() });
   return { wasm, wasmB64, instance, createdAt: Date.now() };
 }
 
@@ -170,12 +178,31 @@ export async function verifyToken(
   siteId: string,
   sid: string,
 ): Promise<"valid" | "missing" | "invalid" | "replayed"> {
-  if (!tok) return "missing";
-  if (!/^[0-9a-f]{32}$/.test(tok)) return "invalid";
+  if (!tok) {
+    debug("pow", "verifyToken → missing", {
+      siteId,
+      sid: sid.slice(0, 8) + "...",
+    });
+    return "missing";
+  }
+  if (!/^[0-9a-f]{32}$/.test(tok)) {
+    debug("pow", "verifyToken → invalid (format)", {
+      tok: tok.slice(0, 16),
+      siteId,
+      sid: sid.slice(0, 8) + "...",
+    });
+    return "invalid";
+  }
 
   // Check for replay before doing expensive WASM verification
   evictExpiredTokens(usedTokens.size > MAX_USED_TOKENS * 0.9);
-  if (usedTokens.has(tok)) return "replayed";
+  if (usedTokens.has(tok)) {
+    debug("pow", "verifyToken → replayed", {
+      tok: tok.slice(0, 8) + "...",
+      siteId,
+    });
+    return "replayed";
+  }
 
   const slot = await ensureCurrentSlot();
   const key = await getHmacKey();
@@ -184,9 +211,12 @@ export async function verifyToken(
   const slots = [slot];
   if (previousSlot) slots.push(previousSlot);
 
+  const bucketsTried: string[] = [];
+
   // Try each minute bucket within the challenge window
   for (let offset = 0; offset >= -CHALLENGE_WINDOW_MINUTES; offset--) {
     const bucket = minuteBucket(offset);
+    bucketsTried.push(bucket);
     const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(bucket));
     const challenge = Array.from(new Uint8Array(sig).slice(0, 16))
       .map((b) => b.toString(16).padStart(2, "0"))
@@ -199,11 +229,27 @@ export async function verifyToken(
       if (constantTimeEquals(expected, tok)) {
         // Mark token as used
         usedTokens.set(tok, Date.now() + NONCE_TTL_MS);
+        debug("pow", "verifyToken → valid", {
+          tok: tok.slice(0, 8) + "...",
+          siteId,
+          sid: sid.slice(0, 8) + "...",
+          matchedBucket: bucket,
+          slotAge: Math.round((Date.now() - s.createdAt) / 1000) + "s",
+        });
         return "valid";
       }
     }
   }
 
+  debug("pow", "verifyToken → invalid", {
+    tok: tok.slice(0, 8) + "...",
+    siteId,
+    sid: sid.slice(0, 8) + "...",
+    bucketsChecked: bucketsTried.length,
+    currentBucket: bucketsTried[0],
+    slotsChecked: slots.length,
+    usedTokensSize: usedTokens.size,
+  });
   return "invalid";
 }
 

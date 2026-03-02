@@ -6,6 +6,7 @@
 
 import { generateChallenge, getWasmBase64 } from "./challenge.ts";
 import { COOKIE_CONSENT, TRUST_PROXY } from "./config.ts";
+import { isDebugEnabled } from "./debug.ts";
 import { getConsentCss } from "./consent-css.ts";
 
 const TRACKER_SOURCE = `(function(){
@@ -50,6 +51,10 @@ if (wantCookie) {
 /*NOCONSENT_START*/
 if (wantCookie) cookieConsented = 1;
 /*NOCONSENT_END*/
+var _dbg = __ECHELON_DEBUG__;
+function dbg() { if (_dbg) console.log.apply(console, ["[echelon:debug]"].concat(Array.prototype.slice.call(arguments))); }
+if (_dbg) dbg("hello from echelon");
+
 var wantClicks = sc.hasAttribute("data-clicks");
 var wantScroll = sc.hasAttribute("data-scroll");
 var wantHover = sc.hasAttribute("data-hover");
@@ -144,11 +149,15 @@ try {
     var parts = cached.split(":");
     if (parts[0] === _c && parts[1] && /^[0-9a-f]{32}$/.test(parts[1]) && Math.random() > 0.1) {
       tok = parts[1];
+      dbg("PoW: using cached token", tok.slice(0, 8) + "...", "challenge match:", parts[0] === _c);
+    } else {
+      dbg("PoW: cached token stale", { cachedChallenge: parts[0] ? parts[0].slice(0, 8) + "..." : "(none)", currentChallenge: _c.slice(0, 8) + "..." });
     }
   }
 } catch(x) {}
 
 if (!tok && _w && _c) {
+  dbg("PoW: solving fresh", { challenge: _c.slice(0, 8) + "...", sid: sid.slice(0, 8) + "...", siteId: siteId });
   try {
     var bin = atob(_w);
     var bytes = new Uint8Array(bin.length);
@@ -162,9 +171,10 @@ if (!tok && _w && _c) {
       var out = mem.slice(2048, 2064);
       tok = "";
       for (var hi = 0; hi < 16; hi++) tok += (out[hi] < 16 ? "0" : "") + out[hi].toString(16);
+      dbg("PoW: solved", { tok: tok.slice(0, 8) + "...", input: inp.slice(0, 40) + "..." });
       try { sessionStorage.setItem("_etok", _c + ":" + tok); } catch(x) {}
-    }).catch(function() {});
-  } catch(x) {}
+    }).catch(function(e) { dbg("PoW: WASM solve failed", e); });
+  } catch(x) { dbg("PoW: WASM instantiation error", x); }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -175,6 +185,7 @@ function sendEvents(events) {
   if (!events.length) return;
   try {
     if (utmC) for (var ei = 0; ei < events.length; ei++) events[ei].utmCampaign = utmC;
+    dbg("sendEvents", { types: events.map(function(e) { return e.type; }), tok: tok ? tok.slice(0, 8) + "..." : "(none)" });
     var j = JSON.stringify({ events: events, siteId: siteId, tok: tok });
     if (navigator.sendBeacon) {
       navigator.sendBeacon(base + "/e", new Blob([j], { type: "application/json" }));
@@ -217,6 +228,7 @@ function sendBeaconImg() {
   beaconUrl += "&sid=" + sid + "&_v=" + (Date.now() - t0) +
     "&sw=" + screen.width + "&sh=" + screen.height +
     (tok ? "&tok=" + tok : "");
+  dbg("beacon", { url: beaconUrl.replace(base, ""), tok: tok ? tok.slice(0, 8) + "..." : "(none)", waitMs: Date.now() - t0 });
   new Image().src = beaconUrl;
   interactionEvents.forEach(function(n) { removeEventListener(n, onInteraction); });
   document.removeEventListener("visibilitychange", onVisChange);
@@ -560,6 +572,7 @@ function onNavigate() {
   fired = 1;
   beaconUrl += "&sid=" + sid + "&_v=spa&sw=" + screen.width + "&sh=" + screen.height +
     (tok ? "&tok=" + tok : "");
+  dbg("SPA nav", { path: currentPath, tok: tok ? tok.slice(0, 8) + "..." : "(none)" });
   new Image().src = beaconUrl;
 }
 
@@ -649,7 +662,8 @@ export async function handleTracker(req: Request): Promise<Response> {
     .replace("__ECHELON_ORIGIN__", () => safeOrigin)
     .replace("__ECHELON_CHALLENGE__", () => safeChallenge)
     .replace("__ECHELON_WASM_B64__", () => safeWasm)
-    .replace("__ECHELON_CONSENT_CSS__", () => safeCss);
+    .replace("__ECHELON_CONSENT_CSS__", () => safeCss)
+    .replace("__ECHELON_DEBUG__", () => isDebugEnabled() ? "true" : "false");
 
   return new Response(script, { headers: SCRIPT_HEADERS });
 }
