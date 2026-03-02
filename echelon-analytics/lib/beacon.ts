@@ -9,7 +9,7 @@ import { getClientIp } from "./ip.ts";
 import {
   classifyDevice,
   classifyReferrer,
-  computeBotScore,
+  computeBotScoreWithDetail,
   extractCloudflareSignals,
   getVisitorCountry,
   hashIp,
@@ -94,9 +94,9 @@ import type { SQLParam } from "./db/adapter.ts";
 
 const VIEW_COLS = `(visitor_id, path, site_id, session_id, interaction_ms,
    screen_width, screen_height, device_type, os_name, country_code,
-   is_returning, referrer, referrer_type, bot_score, is_pwa,
+   is_returning, referrer, referrer_type, bot_score, bot_score_detail, is_pwa,
    utm_source, utm_medium, utm_campaign, utm_content, utm_term)`;
-const VIEW_COL_COUNT = 20;
+const VIEW_COL_COUNT = 21;
 const CHUNK_SIZE = 50;
 const ONE_ROW = `(${Array(VIEW_COL_COUNT).fill("?").join(",")})`;
 
@@ -116,6 +116,7 @@ function viewParams(v: ViewRecord): SQLParam[] {
     v.referrer,
     v.referrer_type,
     v.bot_score,
+    v.bot_score_detail ?? null,
     v.is_pwa,
     v.utm_source ?? null,
     v.utm_medium ?? null,
@@ -314,7 +315,7 @@ export async function handleBeacon(
     const visitorCountry = getVisitorCountry(req);
 
     const cfSignals = extractCloudflareSignals(req);
-    let botScore = computeBotScore({
+    const scoreResult = computeBotScoreWithDetail({
       interactionMs,
       burstCount,
       hasAcceptLanguage: req.headers.has("accept-language"),
@@ -332,7 +333,9 @@ export async function handleBeacon(
     // PoW token verification
     const tok = url.searchParams.get("tok");
     const tokenResult = await verifyToken(tok, siteId, sessionId ?? "");
-    botScore = Math.min(botScore + tokenPenalty(tokenResult), 100);
+    const powPenalty = tokenPenalty(tokenResult);
+    if (powPenalty > 0) scoreResult.detail.pow = powPenalty;
+    const botScore = Math.min(scoreResult.score + powPenalty, 100);
 
     const isPwa = url.searchParams.get("pwa") === "1";
     const osName = parseOS(req.headers.get("user-agent") ?? undefined);
@@ -358,6 +361,7 @@ export async function handleBeacon(
         referrer,
         referrer_type: classifyReferrer(referrer),
         bot_score: botScore,
+        bot_score_detail: JSON.stringify(scoreResult.detail),
         is_pwa: isPwa ? 1 : 0,
         utm_source: utmSource,
         utm_medium: utmMedium,

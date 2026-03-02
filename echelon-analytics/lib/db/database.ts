@@ -116,6 +116,24 @@ async function migrate(adapter: DbAdapter): Promise<void> {
      ON visitor_views(site_id, created_at)
      WHERE bot_score < 50`,
   );
+
+  // Add bot_score_detail column for detailed score breakdown
+  if (!await adapter.columnExists("visitor_views", "bot_score_detail")) {
+    await adapter.exec(
+      "ALTER TABLE visitor_views ADD COLUMN bot_score_detail TEXT",
+    );
+    console.log(
+      "[echelon] Migration: added bot_score_detail to visitor_views",
+    );
+  }
+  if (!await adapter.columnExists("semantic_events", "bot_score_detail")) {
+    await adapter.exec(
+      "ALTER TABLE semantic_events ADD COLUMN bot_score_detail TEXT",
+    );
+    console.log(
+      "[echelon] Migration: added bot_score_detail to semantic_events",
+    );
+  }
 }
 
 export function getDb(): DbAdapter {

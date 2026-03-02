@@ -22,7 +22,7 @@
 
 <header class="site-header" style="visibility:hidden">
   <div class="site-header-inner">
-    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <a href="/" class="logo">Echelon <span>🩺</span></a>
     <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
     <a href="installation.html">Installation</a>
     <a href="features.html">Features</a>
@@ -37,7 +37,7 @@
   </div>
 </header>
 
-<nav><a href="index.html">Echelon 🩺</a> <span class="sep">/</span> Portable Data</nav>
+<nav><a href="/">Echelon 🩺</a> <span class="sep">/</span> Portable Data</nav>
 <main>
 <h1>Portable Data</h1>
 <p class="tagline">One file. Your data. Any tool.</p>
@@ -85,7 +85,7 @@ duckdb -c "ATTACH 'echelon.db' AS ea (TYPE sqlite)"
 
 <hr>
 
-<p class="seal-tip">🦆❤️🦭 "Did you know DuckDB can attach your SQLite database directly and run analytics queries significantly faster? Great for large datasets — no ETL step needed."</p>
+<p class="seal-tip">"Did you know DuckDB can attach your SQLite database directly and run analytics queries significantly faster? Great for large datasets — no ETL step needed." -🦆❤️🦭</p>
 
 <h2>Database Design</h2>
 <p>The schema is intentionally simple. Nine tables, no joins required for basic queries, no surrogate keys you need to look up. Every timestamp is ISO 8601 UTC. Every ID is human-readable text.</p>

@@ -174,6 +174,94 @@ export default define.page<typeof handler>(function Dashboard({ state }) {
         </div>
       </div>
 
+      <div class="grid grid-cols-2 gap-3 mt-3">
+        <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
+          <div class="px-4 py-3 border-b border-[var(--ea-border)]">
+            <h3 class="text-sm text-[var(--ea-primary)]">Operating Systems</h3>
+          </div>
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-[var(--ea-border)]">
+                <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
+                  OS
+                </th>
+                <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
+                  Views
+                </th>
+                <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
+                  Visitors
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.os_systems.map(
+                (o: { os_name: string; views: number; visitors: number }) => (
+                  <tr
+                    key={o.os_name}
+                    class="border-b border-[var(--ea-surface-alt)]"
+                  >
+                    <td class="px-4 py-1.5 text-[var(--ea-text)]">
+                      {o.os_name}
+                    </td>
+                    <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-primary)]">
+                      {o.views}
+                    </td>
+                    <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-text)]">
+                      {o.visitors}
+                    </td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
+          <div class="px-4 py-3 border-b border-[var(--ea-border)]">
+            <h3 class="text-sm text-[var(--ea-primary)]">Resolutions</h3>
+          </div>
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-[var(--ea-border)]">
+                <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
+                  Resolution
+                </th>
+                <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
+                  Views
+                </th>
+                <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
+                  Visitors
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.resolutions.map(
+                (r: {
+                  resolution: string;
+                  views: number;
+                  visitors: number;
+                }) => (
+                  <tr
+                    key={r.resolution}
+                    class="border-b border-[var(--ea-surface-alt)]"
+                  >
+                    <td class="px-4 py-1.5 text-[var(--ea-text)]">
+                      {r.resolution}
+                    </td>
+                    <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-primary)]">
+                      {r.views}
+                    </td>
+                    <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-text)]">
+                      {r.visitors}
+                    </td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="mt-3">
         <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
           <div class="px-4 py-3 border-b border-[var(--ea-border)]">

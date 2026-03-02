@@ -70,7 +70,7 @@ const server = new McpServer({
 // 1. analytics_overview — site overview stats
 server.tool(
   "analytics_overview",
-  "Overview stats for a site: visits, unique visitors, top paths, devices, countries, referrers, and daily trend.",
+  "Overview stats for a site: visits, unique visitors, top paths, devices, OS breakdown, countries, referrers, screen resolutions, and daily trend.",
   {
     site_id: z.string().describe("Site identifier (e.g. 'my-site')"),
     days: z.number().int().min(1).max(730).default(30).describe(

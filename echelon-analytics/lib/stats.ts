@@ -202,6 +202,31 @@ export async function getOverview(
     pathCutoff + "T00:00:00Z",
   );
 
+  const osSystems = await db.query<{
+    os_name: string;
+    views: number;
+    visitors: number;
+  }>(
+    `SELECT COALESCE(os_name, 'Unknown') AS os_name, COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
+     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     GROUP BY os_name ORDER BY views DESC LIMIT 20`,
+    siteId,
+    pathCutoff + "T00:00:00Z",
+  );
+
+  const resolutions = await db.query<{
+    resolution: string;
+    views: number;
+    visitors: number;
+  }>(
+    `SELECT (COALESCE(screen_width, 0) || 'x' || COALESCE(screen_height, 0)) AS resolution,
+            COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
+     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     GROUP BY resolution ORDER BY views DESC LIMIT 20`,
+    siteId,
+    pathCutoff + "T00:00:00Z",
+  );
+
   const dailyTrend = await db.query<{
     date: string;
     visits: number;
@@ -225,6 +250,8 @@ export async function getOverview(
     devices,
     countries,
     referrers,
+    os_systems: osSystems,
+    resolutions,
     daily_trend: dailyTrend,
   };
 }
@@ -466,6 +493,7 @@ export async function getDashboardLive(db: DbAdapter, siteId: string) {
   // Recent visitors — last 20 unique non-bot visitors
   const recentVisitors = await db.query<Record<string, unknown>>(
     `SELECT visitor_id, MAX(device_type) AS device_type,
+            MAX(os_name) AS os_name,
             MAX(country_code) AS country_code, MAX(created_at) AS created_at,
             COUNT(*) AS view_count
      FROM visitor_views

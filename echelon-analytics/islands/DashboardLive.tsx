@@ -271,6 +271,9 @@ export default function DashboardLive({ siteId }: Props) {
                   Device
                 </th>
                 <th class="text-left px-3 py-1.5 text-[var(--ea-muted)]">
+                  OS
+                </th>
+                <th class="text-left px-3 py-1.5 text-[var(--ea-muted)]">
                   Country
                 </th>
                 <th class="text-left px-3 py-1.5 text-[var(--ea-muted)]">
@@ -299,6 +302,9 @@ export default function DashboardLive({ siteId }: Props) {
                       {(v.device_type as string) || "-"}
                     </td>
                     <td class="px-3 py-1 text-[var(--ea-text)]">
+                      {(v.os_name as string) || "-"}
+                    </td>
+                    <td class="px-3 py-1 text-[var(--ea-text)]">
                       {(v.country_code as string) || "-"}
                     </td>
                     <td class="px-3 py-1 text-[var(--ea-muted)] whitespace-nowrap">
@@ -310,7 +316,7 @@ export default function DashboardLive({ siteId }: Props) {
               {d.recentVisitors.length === 0 && (
                 <tr>
                   <td
-                    colspan={5}
+                    colspan={6}
                     class="px-3 py-3 text-center text-[var(--ea-muted)]"
                   >
                     No recent visitors

@@ -8,7 +8,7 @@ import type { DbAdapter } from "./db/adapter.ts";
 import type { SemanticEvent } from "../types.ts";
 import { getClientIp } from "./ip.ts";
 import {
-  computeBotScore,
+  computeBotScoreWithDetail,
   extractCloudflareSignals,
   getBurstCount,
   getVisitorCountry,
@@ -65,8 +65,8 @@ import type { SQLParam } from "./db/adapter.ts";
 const EVENT_COLS = `(event_type, site_id, session_id, visitor_id, data,
    experiment_id, variant_id, utm_campaign,
    device_type, referrer, hour, month, day_of_week,
-   is_returning, bot_score)`;
-const EVENT_COL_COUNT = 15;
+   is_returning, bot_score, bot_score_detail)`;
+const EVENT_COL_COUNT = 16;
 const CHUNK_SIZE = 50;
 const ONE_ROW = `(${Array(EVENT_COL_COUNT).fill("?").join(",")})`;
 
@@ -87,6 +87,7 @@ function eventParams(ev: SemanticEvent): SQLParam[] {
     ev.day_of_week,
     ev.is_returning,
     ev.bot_score,
+    ev.bot_score_detail ?? null,
   ];
 }
 
@@ -222,7 +223,7 @@ export async function handleEvents(
   const visitorCountry = getVisitorCountry(req);
 
   const cfSignals = extractCloudflareSignals(req);
-  let botScore = computeBotScore({
+  const scoreResult = computeBotScoreWithDetail({
     burstCount,
     hasAcceptLanguage: req.headers.has("accept-language"),
     hasSecChUa: req.headers.has("sec-ch-ua"),
@@ -240,7 +241,10 @@ export async function handleEvents(
     siteId,
     typeof firstSession === "string" ? firstSession : "",
   );
-  botScore = Math.min(botScore + tokenPenalty(tokenResult), 100);
+  const powPenalty = tokenPenalty(tokenResult);
+  if (powPenalty > 0) scoreResult.detail.pow = powPenalty;
+  const botScore = Math.min(scoreResult.score + powPenalty, 100);
+  const botScoreDetail = JSON.stringify(scoreResult.detail);
 
   // Discard if bot score exceeds threshold (when configured)
   if (BOT_DISCARD_THRESHOLD > 0 && botScore >= BOT_DISCARD_THRESHOLD) {
@@ -294,6 +298,7 @@ export async function handleEvents(
       day_of_week: dayOfWeek,
       is_returning: isReturning ? 1 : 0,
       bot_score: botScore,
+      bot_score_detail: botScoreDetail,
     };
     if (shouldAnonymize(siteId)) {
       eventRecord = await anonymizeEvent(eventRecord);

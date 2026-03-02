@@ -22,6 +22,7 @@ export const SCHEMA_SQL = `
     referrer TEXT,
     referrer_type TEXT,
     bot_score INTEGER NOT NULL DEFAULT 0,
+    bot_score_detail TEXT,
     is_pwa INTEGER NOT NULL DEFAULT 0,
     utm_source TEXT,
     utm_medium TEXT,
@@ -78,6 +79,7 @@ export const SCHEMA_SQL = `
     day_of_week INTEGER,
     is_returning INTEGER NOT NULL DEFAULT 0,
     bot_score INTEGER NOT NULL DEFAULT 0,
+    bot_score_detail TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
   );
 

@@ -15,6 +15,7 @@ export interface ViewRecord {
   referrer: string | null;
   referrer_type: string;
   bot_score: number;
+  bot_score_detail?: string | null;
   is_pwa: number;
   utm_source?: string | null;
   utm_medium?: string | null;
@@ -39,6 +40,7 @@ export interface SemanticEvent {
   day_of_week: number;
   is_returning: number;
   bot_score: number;
+  bot_score_detail?: string | null;
 }
 
 export interface ExperimentRow {

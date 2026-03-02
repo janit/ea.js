@@ -161,36 +161,40 @@ export function extractCloudflareSignals(
 
 const BURST_THRESHOLD = 15;
 
-/** Compute a bot score from 0 (definitely human) to 100 (definitely bot). */
-export function computeBotScore(signals: BotScoreSignals): number {
-  let score = 0;
+/** Detailed bot score result with per-factor breakdown. */
+export interface BotScoreResult {
+  score: number;
+  detail: Record<string, number>;
+}
+
+/** Compute a bot score with per-factor breakdown. */
+export function computeBotScoreWithDetail(
+  signals: BotScoreSignals,
+): BotScoreResult {
+  const detail: Record<string, number> = {};
 
   // Cloudflare Bot Management integration (when available)
   // CF scale: 1=bot, 99=human → invert to our scale: 0=human, 100=bot
   if (signals.cfBotScore !== undefined) {
-    // Verified bots (Googlebot, etc.) are already handled by isKnownBot UA check.
-    // If CF says verified bot but it passed UA check, treat as low-risk (e.g. niche bot).
+    let cfPenalty = 0;
     if (signals.cfVerifiedBot) {
-      score += 15;
+      cfPenalty = 15;
     } else if (signals.cfBotScore <= 2) {
-      // CF very confident it's a bot
-      score += 50;
+      cfPenalty = 50;
     } else if (signals.cfBotScore <= 29) {
-      // CF thinks likely automated
-      score += 30;
+      cfPenalty = 30;
     } else if (signals.cfBotScore <= 50) {
-      // CF uncertain — mild signal
-      score += 10;
+      cfPenalty = 10;
     }
-    // cfBotScore > 50 → CF thinks likely human, no penalty
+    if (cfPenalty > 0) detail.cf = cfPenalty;
   }
 
   // Low interaction time — beacon gate is 800ms
   if (signals.interactionMs !== undefined) {
     if (signals.interactionMs < 850) {
-      score += 20;
+      detail.timing = 20;
     } else if (signals.interactionMs < 1000) {
-      score += 8;
+      detail.timing = 8;
     }
   }
 
@@ -199,7 +203,7 @@ export function computeBotScore(signals: BotScoreSignals): number {
     signals.visitorCountry &&
     SUSPECT_COUNTRIES.has(signals.visitorCountry.toUpperCase())
   ) {
-    score += SUSPECT_POINTS;
+    detail.geo = SUSPECT_POINTS;
   }
 
   // Per-site suspect countries (additive — stacks with global)
@@ -208,24 +212,24 @@ export function computeBotScore(signals: BotScoreSignals): number {
       signals.siteId.toLowerCase(),
     );
     if (siteSuspect?.has(signals.visitorCountry.toUpperCase())) {
-      score += SUSPECT_POINTS;
+      detail.geo_site = SUSPECT_POINTS;
     }
   }
 
   // Burst detection
   if (signals.burstCount > BURST_THRESHOLD) {
-    score += 25;
+    detail.burst = 25;
   }
 
-  // Missing Accept-Language
+  // Missing Accept-Language or missing both Sec-CH-UA AND Sec-Fetch-Site
+  let headerPenalty = 0;
   if (!signals.hasAcceptLanguage) {
-    score += 10;
+    headerPenalty += 10;
   }
-
-  // Missing both Sec-CH-UA AND Sec-Fetch-Site
   if (!signals.hasSecChUa && !signals.hasSecFetchSite) {
-    score += 10;
+    headerPenalty += 10;
   }
+  if (headerPenalty > 0) detail.headers = headerPenalty;
 
   // Unrealistic screen dimensions
   if (
@@ -234,7 +238,7 @@ export function computeBotScore(signals: BotScoreSignals): number {
     const w = signals.screenWidth ?? 0;
     const h = signals.screenHeight ?? 0;
     if (w <= 0 || w > 10000 || h <= 0 || h > 10000) {
-      score += 10;
+      detail.screen = 10;
     }
   }
 
@@ -245,11 +249,20 @@ export function computeBotScore(signals: BotScoreSignals): number {
   ) {
     const segments = signals.path.split("/").filter(Boolean);
     if (segments.length >= 2) {
-      score += 5;
+      detail.referrer = 5;
     }
   }
 
-  return Math.min(score, 100);
+  const score = Math.min(
+    Object.values(detail).reduce((sum, v) => sum + v, 0),
+    100,
+  );
+  return { score, detail };
+}
+
+/** Compute a bot score from 0 (definitely human) to 100 (definitely bot). */
+export function computeBotScore(signals: BotScoreSignals): number {
+  return computeBotScoreWithDetail(signals).score;
 }
 
 // ── Referrer classification ─────────────────────────────────────────────────

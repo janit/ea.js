@@ -3,6 +3,7 @@ import { define } from "../../../utils.ts";
 import { AdminNav } from "../../../components/AdminNav.tsx";
 import { getLiveStats } from "../../../lib/admin-stats.ts";
 import BotActions from "../../../islands/BotActions.tsx";
+import BotScoreDetail from "../../../islands/BotScoreDetail.tsx";
 import { PUBLIC_MODE } from "../../../lib/config.ts";
 import { formatTime } from "../../../lib/format.ts";
 
@@ -12,7 +13,8 @@ export const handler = define.handlers({
     const visitorId = decodeURIComponent(ctx.params.id);
 
     const views = await db.query<Record<string, unknown>>(
-      `SELECT path, site_id, interaction_ms, device_type, os_name,
+      `SELECT id, path, site_id, interaction_ms, screen_width, screen_height,
+              device_type, os_name,
               country_code, referrer_type, bot_score, is_pwa, created_at
        FROM visitor_views WHERE visitor_id = ?
        ORDER BY created_at DESC LIMIT 100`,
@@ -20,7 +22,7 @@ export const handler = define.handlers({
     );
 
     const events = await db.query<Record<string, unknown>>(
-      `SELECT event_type, site_id, data, device_type, bot_score, created_at
+      `SELECT id, event_type, site_id, data, device_type, bot_score, created_at
        FROM semantic_events WHERE visitor_id = ?
        ORDER BY created_at DESC LIMIT 100`,
       visitorId,
@@ -42,15 +44,6 @@ export const handler = define.handlers({
     return page();
   },
 });
-
-function scoreBadge(score: number) {
-  const cls = score >= 50
-    ? "bot-score-high"
-    : score >= 25
-    ? "bot-score-med"
-    : "bot-score-low";
-  return <span class={`bot-score-badge ${cls}`}>{score}</span>;
-}
 
 export default define.page<typeof handler>(function VisitorDetailPage({
   state,
@@ -106,6 +99,12 @@ export default define.page<typeof handler>(function VisitorDetailPage({
                 Device
               </th>
               <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
+                OS
+              </th>
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
+                Resolution
+              </th>
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Country
               </th>
               <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
@@ -126,10 +125,21 @@ export default define.page<typeof handler>(function VisitorDetailPage({
                   {v.site_id as string}
                 </td>
                 <td class="px-4 py-1.5">
-                  {scoreBadge(v.bot_score as number)}
+                  <BotScoreDetail
+                    viewId={v.id as number}
+                    score={v.bot_score as number}
+                  />
                 </td>
                 <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {v.device_type as string}
+                </td>
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
+                  {(v.os_name as string) || "-"}
+                </td>
+                <td class="px-4 py-1.5 text-[var(--ea-text)] tabular-nums">
+                  {v.screen_width
+                    ? `${v.screen_width}x${v.screen_height}`
+                    : "-"}
                 </td>
                 <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {v.country_code as string}
@@ -184,7 +194,10 @@ export default define.page<typeof handler>(function VisitorDetailPage({
                       {e.site_id as string}
                     </td>
                     <td class="px-4 py-1.5">
-                      {scoreBadge(e.bot_score as number)}
+                      <BotScoreDetail
+                        eventId={e.id as number}
+                        score={e.bot_score as number}
+                      />
                     </td>
                     <td class="px-4 py-1.5 truncate max-w-[200px]">
                       <span class="text-xs text-[var(--ea-muted)]">
