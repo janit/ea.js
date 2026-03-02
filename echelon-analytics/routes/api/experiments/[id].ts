@@ -11,7 +11,7 @@ const VALID_STATUSES = new Set([
 export const handler = define.handlers({
   async PATCH(ctx) {
     const db = ctx.state.db;
-    const expId = ctx.params.id.slice(0, 128);
+    const expId = decodeURIComponent(ctx.params.id).slice(0, 128);
 
     let body: Record<string, unknown>;
     try {
@@ -32,6 +32,18 @@ export const handler = define.handlers({
             [...VALID_STATUSES].join(", "),
         },
         { status: 400 },
+      );
+    }
+
+    // Verify experiment exists
+    const existing = await db.queryOne<{ experiment_id: string }>(
+      `SELECT experiment_id FROM experiments WHERE experiment_id = ?`,
+      expId,
+    );
+    if (!existing) {
+      return Response.json(
+        { error: "not_found", message: "Experiment not found" },
+        { status: 404 },
       );
     }
 

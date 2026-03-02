@@ -3,7 +3,7 @@ import { define } from "../../../utils.ts";
 export const handler = define.handlers({
   async GET(ctx) {
     const rows = await ctx.state.db.query(
-      `SELECT * FROM experiments ORDER BY created_at DESC`,
+      `SELECT * FROM experiments ORDER BY created_at DESC LIMIT 200`,
     );
     return Response.json(rows);
   },
@@ -35,8 +35,18 @@ export const handler = define.handlers({
       );
     }
 
-    // Validate lengths and variant count
+    // Validate ID format (alphanumeric + ._-), lengths, and variant count
+    const ID_RE = /^[a-zA-Z0-9._-]+$/;
     const expId = String(experiment_id).slice(0, 128);
+    if (!ID_RE.test(expId)) {
+      return Response.json(
+        {
+          error: "invalid_payload",
+          message: "experiment_id must be alphanumeric (plus . _ -)",
+        },
+        { status: 400 },
+      );
+    }
     const expName = String(name).slice(0, 256);
     const expDesc = description ? String(description).slice(0, 1024) : null;
     const expMetric = String(metric_event_type).slice(0, 128);

@@ -146,7 +146,7 @@ export async function getOverview(
     cutoff,
   );
 
-  const today = new Date().toISOString().slice(0, 10);
+  const todayCutoff = new Date().toISOString().slice(0, 10) + "T00:00:00Z";
   const todayTotals = await db.queryOne<{
     visits: number;
     unique_visitors: number;
@@ -154,9 +154,9 @@ export async function getOverview(
     `SELECT COUNT(*) AS visits,
             COUNT(DISTINCT visitor_id) AS unique_visitors
      FROM visitor_views
-     WHERE site_id = ? AND created_at >= ? || 'T00:00:00Z' AND bot_score < 50`,
+     WHERE site_id = ? AND created_at >= ? AND bot_score < 50`,
     siteId,
-    today,
+    todayCutoff,
   );
 
   // Limit path scan to max 7 days of raw data for performance
@@ -400,6 +400,213 @@ export async function getCampaignDetail(
   );
 
   return { bySource, byMedium, dailyTrend, topPaths, byContent, byTerm };
+}
+
+/** Dashboard live stats — now, 60-min trend, 24-hour trend, recent visitors/events. */
+export async function getDashboardLive(db: DbAdapter, siteId: string) {
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    .toISOString();
+
+  // Now — active visitors + bots
+  const now = await db.queryOne<{
+    active_visitors: number;
+    estimated_bots: number;
+    pageviews: number;
+  }>(
+    `SELECT
+       COUNT(DISTINCT CASE WHEN bot_score < 50 THEN visitor_id END) AS active_visitors,
+       COUNT(DISTINCT CASE WHEN bot_score >= 50 THEN visitor_id END) AS estimated_bots,
+       COUNT(CASE WHEN bot_score < 50 THEN 1 END) AS pageviews
+     FROM visitor_views
+     WHERE site_id = ? AND created_at >= ?`,
+    siteId,
+    fiveMinAgo,
+  );
+
+  // Last 60 minutes — minute-by-minute
+  const hourlyVisitors = await db.query<{ minute: string; count: number }>(
+    `SELECT strftime('%H:%M', created_at) AS minute, COUNT(*) AS count
+     FROM visitor_views
+     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     GROUP BY minute ORDER BY minute`,
+    siteId,
+    oneHourAgo,
+  );
+
+  const hourlyEvents = await db.query<{ minute: string; count: number }>(
+    `SELECT strftime('%H:%M', created_at) AS minute, COUNT(*) AS count
+     FROM semantic_events
+     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     GROUP BY minute ORDER BY minute`,
+    siteId,
+    oneHourAgo,
+  );
+
+  // Last 24 hours — hourly
+  const dailyVisitors = await db.query<{ hour: string; count: number }>(
+    `SELECT strftime('%H:00', created_at) AS hour, COUNT(*) AS count
+     FROM visitor_views
+     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     GROUP BY hour ORDER BY hour`,
+    siteId,
+    twentyFourHoursAgo,
+  );
+
+  const dailyEvents = await db.query<{ hour: string; count: number }>(
+    `SELECT strftime('%H:00', created_at) AS hour, COUNT(*) AS count
+     FROM semantic_events
+     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     GROUP BY hour ORDER BY hour`,
+    siteId,
+    twentyFourHoursAgo,
+  );
+
+  // Recent visitors — last 20 non-bot
+  const recentVisitors = await db.query<Record<string, unknown>>(
+    `SELECT visitor_id, site_id, device_type, country_code, path, created_at, is_returning
+     FROM visitor_views
+     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     ORDER BY created_at DESC LIMIT 20`,
+    siteId,
+    oneHourAgo,
+  );
+
+  // Recent events — last 20
+  const recentEvents = await db.query<Record<string, unknown>>(
+    `SELECT event_type, site_id, visitor_id, created_at
+     FROM semantic_events
+     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     ORDER BY created_at DESC LIMIT 20`,
+    siteId,
+    oneHourAgo,
+  );
+
+  return {
+    now: {
+      activeVisitors: now?.active_visitors ?? 0,
+      estimatedBots: now?.estimated_bots ?? 0,
+      pageviews: now?.pageviews ?? 0,
+    },
+    hourly: { visitors: hourlyVisitors, events: hourlyEvents },
+    daily: { visitors: dailyVisitors, events: dailyEvents },
+    recentVisitors,
+    recentEvents,
+  };
+}
+
+/**
+ * Campaign-to-event correlation: do campaign visitors trigger events?
+ *
+ * For each campaign (plus an "organic" row for non-campaign traffic):
+ * - visitors: unique visitors from visitor_views
+ * - event_visitors: unique visitors who also triggered semantic_events
+ * - events: total event count
+ * - event_rate: event_visitors / visitors
+ * - events_per_visitor: events / visitors
+ *
+ * Optionally filter by event_type to focus on a specific conversion event.
+ */
+export async function getCampaignEvents(
+  db: DbAdapter,
+  siteId: string,
+  days: number = 30,
+  eventType?: string,
+) {
+  const cutoff = daysAgoUTC(Math.min(days, 90)) + "T00:00:00Z";
+
+  type CampaignEventRow = {
+    campaign_id: string | null;
+    campaign_name: string | null;
+    utm_campaign: string | null;
+    visitors: number;
+    event_visitors: number;
+    events: number;
+  };
+
+  // Get visitor counts per campaign (including organic = NULL)
+  const eventFilter = eventType ? `AND se.event_type = ?` : "";
+  const params: (string | number)[] = [cutoff, siteId, cutoff, siteId];
+  if (eventType) params.push(eventType);
+  params.push(cutoff, siteId);
+
+  const rows = await db.query<CampaignEventRow>(
+    `SELECT
+       uc.id AS campaign_id,
+       uc.name AS campaign_name,
+       vv_agg.utm_campaign,
+       vv_agg.visitors,
+       COALESCE(se_agg.event_visitors, 0) AS event_visitors,
+       COALESCE(se_agg.events, 0) AS events
+     FROM (
+       SELECT utm_campaign,
+              COUNT(DISTINCT visitor_id) AS visitors
+       FROM visitor_views
+       WHERE created_at >= ? AND site_id = ? AND bot_score < 50
+       GROUP BY utm_campaign
+     ) vv_agg
+     LEFT JOIN (
+       SELECT utm_campaign,
+              COUNT(DISTINCT visitor_id) AS event_visitors,
+              COUNT(*) AS events
+       FROM semantic_events
+       WHERE created_at >= ? AND site_id = ? AND bot_score < 50
+         ${eventFilter}
+       GROUP BY utm_campaign
+     ) se_agg ON se_agg.utm_campaign IS vv_agg.utm_campaign
+     LEFT JOIN utm_campaigns uc
+       ON uc.utm_campaign = vv_agg.utm_campaign AND uc.site_id = ?
+     ORDER BY vv_agg.visitors DESC
+     LIMIT 50`,
+    ...params,
+  );
+
+  // Build event type breakdown per campaign
+  const typeParams: (string | number)[] = [cutoff, siteId];
+  const typeRows = await db.query<{
+    utm_campaign: string | null;
+    event_type: string;
+    count: number;
+    unique_visitors: number;
+  }>(
+    `SELECT utm_campaign, event_type,
+            COUNT(*) AS count,
+            COUNT(DISTINCT visitor_id) AS unique_visitors
+     FROM semantic_events
+     WHERE created_at >= ? AND site_id = ? AND bot_score < 50
+     GROUP BY utm_campaign, event_type
+     ORDER BY utm_campaign, count DESC
+     LIMIT 500`,
+    ...typeParams,
+  );
+
+  // Group type breakdown by campaign
+  const typesByCampaign = new Map<string | null, typeof typeRows>();
+  for (const row of typeRows) {
+    const key = row.utm_campaign;
+    const list = typesByCampaign.get(key) ?? [];
+    list.push(row);
+    typesByCampaign.set(key, list);
+  }
+
+  return rows.map((r) => ({
+    campaign_id: r.campaign_id,
+    campaign_name: r.campaign_name,
+    utm_campaign: r.utm_campaign,
+    visitors: r.visitors,
+    event_visitors: r.event_visitors,
+    events: r.events,
+    event_rate: r.visitors > 0 ? r.event_visitors / r.visitors : 0,
+    events_per_visitor: r.visitors > 0 ? r.events / r.visitors : 0,
+    event_types: (typesByCampaign.get(r.utm_campaign) ?? []).slice(0, 10).map(
+      (t) => ({
+        event_type: t.event_type,
+        count: t.count,
+        unique_visitors: t.unique_visitors,
+      }),
+    ),
+  }));
 }
 
 function daysAgoUTC(days: number): string {

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telemetry — Echelon Analytics</title>
+<meta name="description" content="Echelon Analytics opt-in telemetry: what it collects, what it doesn't, how to control it, and how to view the public analytics dashboard.">
+<link rel="canonical" href="https://ea.js.org/telemetry.html">
+<link rel="icon" href="favicon.ico">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Echelon Analytics">
+<meta property="og:title" content="Telemetry — Echelon Analytics">
+<meta property="og:description" content="Opt-in anonymous usage data: what it collects, what it doesn't, and how to control it.">
+<meta property="og:url" content="https://ea.js.org/telemetry.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Telemetry — Echelon Analytics">
+<meta name="twitter:description" content="Opt-in anonymous usage data: what it collects, what it doesn't, and how to control it.">
+<link rel="stylesheet" href="css/style.css">
+<script async src="https://ea.islets.app/ea.js" data-site="echelon-analytics" data-cookie></script>
+</head>
+<body>
+
+<header class="site-header" style="visibility:hidden">
+  <div class="site-header-inner">
+    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
+    <a href="installation.html">Installation</a>
+    <a href="features.html">Features</a>
+    <a href="api.html">API</a>
+    <a href="bot-defense.html">Bot Defense</a>
+    <a href="configuration.html">Config</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="portable-data.html">Portable Data</a>
+      <a href="mcp.html">MCP</a>
+    <a href="telemetry.html">Telemetry</a>
+    <a href="why-ea.html">Why ea.js?</a>
+  </div>
+</header>
+
+<nav><a href="index.html">Echelon 🩺</a> <span class="sep">/</span> Telemetry</nav>
+<main>
+<h1>Telemetry</h1>
+<p class="tagline">Opt-in, transparent, anonymous admin panel usage data.</p>
+
+<hr>
+
+<h2>Overview</h2>
+<p>Echelon Analytics can optionally send anonymous usage data from the <strong>admin panel only</strong> to the Echelon project. This helps the project understand which admin features are used and prioritize development. Telemetry is <strong>opt-in</strong> — it is never enabled without your explicit consent.</p>
+
+<div class="card">
+  <h3>The short version</h3>
+  <ul>
+    <li>Telemetry tracks admin panel page visits only (which admin pages you use)</li>
+    <li>No visitor data, no page content, no PII is ever shared</li>
+    <li>You are prompted on first admin access — "opt in" or "no thanks"</li>
+    <li>You can change your choice anytime in Settings or via an environment variable</li>
+    <li>A persistent status indicator (🟢📞 / 🔴📞) in the nav bar shows the current state</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2>What telemetry collects</h2>
+<p>When enabled, the admin panel loads the standard Echelon tracking script pointed at <code>ea.islets.app</code> with <code>data-site="ea"</code>. This tracks:</p>
+<ul>
+  <li>Admin page visits (e.g. <code>/admin</code>, <code>/admin/visitors</code>, <code>/admin/settings</code>)</li>
+  <li>Browser viewport size and device type (desktop/mobile)</li>
+  <li>Country code (derived from IP by the receiving server, not sent by your instance)</li>
+</ul>
+<p>This is the same privacy-preserving tracking that Echelon provides to your own sites — daily-rotating HMAC visitor IDs, no cookies by default, no fingerprinting.</p>
+
+<h2>What telemetry does NOT collect</h2>
+<ul>
+  <li>No visitor/user data from your tracked sites</li>
+  <li>No page content, titles, or URLs from your tracked sites</li>
+  <li>No database contents or query results</li>
+  <li>No PII (names, emails, IPs are never stored by the receiving server)</li>
+  <li>No experiment names, campaign details, or business data</li>
+  <li>No configuration values or environment variables</li>
+</ul>
+
+<hr>
+
+<h2>How to control telemetry</h2>
+
+<h3>First-run prompt</h3>
+<p>On first admin access (fresh database), a banner asks you to opt in or decline. Your choice is stored in the database and remembered across restarts.</p>
+
+<h3>Settings toggle</h3>
+<p>Go to <strong>Settings</strong> in the admin panel. The "Telemetry" section has a toggle to enable or disable telemetry at any time.</p>
+
+<h3>Environment variable (killswitch)</h3>
+<p>Set <code>ECHELON_TELEMETRY</code> to override the database setting:</p>
+<table>
+<tr><th>Value</th><th>Effect</th></tr>
+<tr><td><code>true</code></td><td>Force telemetry on (Settings toggle shows "locked")</td></tr>
+<tr><td><code>false</code></td><td>Force telemetry off — hard killswitch (Settings toggle shows "locked")</td></tr>
+<tr><td><em>(unset)</em></td><td>Respect the per-instance database setting</td></tr>
+</table>
+<p>Example:</p>
+<pre>ECHELON_TELEMETRY=false deno task start</pre>
+
+<hr>
+
+<h2>Status indicator</h2>
+<p>The admin nav bar always shows the current telemetry state between the theme selector and the logout link:</p>
+<table>
+<tr><th>Indicator</th><th>Meaning</th></tr>
+<tr><td>🟢📞</td><td>Telemetry is <strong>active</strong> — admin usage data is being sent</td></tr>
+<tr><td>🔴📞</td><td>Telemetry is <strong>inactive</strong> — nothing is sent</td></tr>
+<tr><td><em>(hidden)</em></td><td>Undecided — the opt-in banner is shown instead</td></tr>
+</table>
+<p>Clicking the indicator opens this page.</p>
+
+<hr>
+
+<h2>View the telemetry data</h2>
+<p>The telemetry data is sent to <a href="https://ea.islets.app">ea.islets.app</a>, which is a public Echelon Analytics instance running with <code>ECHELON_PUBLIC_MODE=true</code>. You can visit the admin dashboard without logging in and see exactly what data is collected across all participating Echelon instances.</p>
+
+<h3 id="anonymization">How anonymization works</h3>
+<p>All telemetry data is anonymized <strong>before storage</strong> using <code>ECHELON_ANONYMIZE_SITES</code>. The receiving instance never stores identifiable data about tracked instances. Specifically:</p>
+<table>
+<tr><th>Field</th><th>Anonymization</th></tr>
+<tr><td>Visitor ID</td><td>HMAC-SHA256 with daily-rotating key &rarr; consistent per-day hash (not reversible)</td></tr>
+<tr><td>Session ID</td><td>Mapped to a Norwegian fisherman name (e.g. "Torstein Sj&oslash;mann", "Olav Sildekong")</td></tr>
+<tr><td>Country code</td><td>Mapped to a fictional exoplanet name (e.g. "Kepler-442b", "Proxima-b")</td></tr>
+<tr><td>Referrer</td><td>Replaced with a fictional NSA intranet URL (e.g. <code>https://nsa-intranet.gov/ops/PRISM-a3f2</code>)</td></tr>
+<tr><td>UTM params</td><td>Mapped to operation codenames (e.g. "operation-mockingbird")</td></tr>
+<tr><td>Experiments</td><td>Hashed to <code>experiment-&lt;hash&gt;</code> / <code>variant-&lt;hash&gt;</code></td></tr>
+<tr><td>Event data</td><td>Stripped to <code>{}</code> (may contain identifying info)</td></tr>
+<tr><td>Path</td><td>Kept as-is (admin panel paths like <code>/admin/visitors</code> are not sensitive)</td></tr>
+</table>
+<p>All mappings are deterministic within a day (same input &rarr; same output), so analytics aggregation works correctly. The mappings rotate daily and are not reversible.</p>
+
+<h3>MCP server</h3>
+<p>The <a href="mcp.html">MCP server</a> at <code>ea.islets.app</code> also serves the already-anonymized data. AI agents querying the telemetry database via MCP tools will only ever see anonymized records.</p>
+
+<hr>
+
+<h2>Origin exemption</h2>
+<p>If your instance uses <code>ECHELON_ALLOWED_ORIGINS</code> to restrict tracking to specific domains, the telemetry site ID (<code>ea</code>) is automatically exempted from origin checks. This ensures telemetry works regardless of your origin restrictions, while still respecting your opt-in/out choice.</p>
+
+<hr>
+
+<h2>Data Collection Policy</h2>
+<p>This is the complete, authoritative policy for Echelon Analytics telemetry data collection. No data is collected beyond what is described here.</p>
+
+<h3>What is collected</h3>
+<ol>
+  <li><strong>Admin page paths</strong> — which admin pages you visit (e.g. <code>/admin</code>, <code>/admin/visitors</code>). No visitor-facing page paths from your tracked sites are ever sent.</li>
+  <li><strong>Viewport size and device type</strong> — browser window dimensions and desktop/mobile classification.</li>
+  <li><strong>Country code</strong> — derived server-side from your IP address by the receiving instance. Your IP is never stored.</li>
+  <li><strong>Behavioral events</strong> — standard Echelon events (scroll depth, session timing, clicks) from admin pages only.</li>
+</ol>
+
+<h3>What is NOT collected, under any circumstances</h3>
+<ul>
+  <li>No data from your tracked sites (visitor counts, page content, URLs, analytics results)</li>
+  <li>No personally identifiable information (names, emails, usernames, passwords)</li>
+  <li>No IP addresses (used transiently for country lookup, then discarded)</li>
+  <li>No database contents, configuration values, or environment variables</li>
+  <li>No experiment names, campaign details, UTM parameters, or business data</li>
+  <li>No cookies (telemetry uses cookieless tracking by default)</li>
+</ul>
+
+<h3>How data is transmitted</h3>
+<p>When telemetry is enabled, the admin panel includes the standard Echelon tracking script (<code>ea.js</code>) pointed at <code>ea.islets.app</code> with <code>data-site="ea"</code>. This is the exact same tracking script your own sites use — no special telemetry-only code paths exist. Pageviews go to <code>/b.gif</code> (pixel beacon) and behavioral events go to <code>POST /e</code> (sendBeacon), both protected by the same proof-of-work challenge system.</p>
+
+<h3>How data is stored</h3>
+<p>The receiving instance at <code>ea.islets.app</code> runs with <code>ECHELON_ANONYMIZE_SITES=ea</code>, which anonymizes all telemetry records <strong>before they are written to the database</strong>. The original values never touch disk. See the <a href="#anonymization">anonymization details</a> above.</p>
+
+<h3>Data retention</h3>
+<p>Raw telemetry records are retained for 90 days (the default <code>ECHELON_RETENTION_DAYS</code>). Daily rollups aggregate the data and raw records are purged after the retention window. All stored data is anonymized.</p>
+
+<h3>Verify it yourself</h3>
+<p>Every claim on this page is verifiable:</p>
+<ul>
+  <li><strong>The code is open source</strong> — the telemetry implementation lives in the <a href="https://github.com/janit/ea">public repository</a>. The relevant files are <code>lib/telemetry.ts</code> (opt-in resolution), <code>lib/anonymize.ts</code> (pre-storage anonymization), <code>lib/beacon.ts</code> and <code>lib/events-endpoint.ts</code> (anonymization intercept at write time), and <code>lib/config.ts</code> (configuration).</li>
+  <li><strong>The collected data is publicly available for analysis</strong> — <a href="https://ea.islets.app/admin">ea.islets.app/admin</a> runs in public mode with no login required. Visit the dashboard and inspect the actual stored data yourself. You will see Norwegian fisherman names, exoplanet countries, and NSA intranet referrers — not real values.</li>
+  <li><strong>The code running on <code>ea.islets.app</code> is the same code in the repository</strong> — no private fork, no secret modifications.</li>
+</ul>
+
+<h3>Found a problem?</h3>
+<p>If you believe telemetry collects more than what is described here, or if you find any issue with the anonymization, please <a href="https://github.com/janit/ea/issues">open a GitHub issue</a>. Telemetry trust is non-negotiable — any valid concern will be addressed immediately.</p>
+
+<p class="seal-tip">📞 "Transparency is the best policy! That's why the nav bar always shows whether telemetry is on or off — no hidden tracking, ever." -<span class="seal">🦭</span></p>
+
+<hr>
+<div class="doc-nav">
+  <a href="installation.html">Installation</a>
+  <a href="features.html">Features</a>
+  <a href="api.html">API Reference</a>
+  <a href="bot-defense.html">Bot Defense</a>
+  <a href="configuration.html">Configuration</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="portable-data.html">Portable Data</a>
+  <a href="mcp.html">MCP Server</a>
+  <a href="why-ea.html">Why ea.js?</a>
+</div>
+</main>
+
+<footer class="footer">
+  <div class="quote">🛢️ "Data er den nye oljen!" -🦭</div>
+  <div class="links">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen — <a href="https://github.com/janit/ea">GitHub</a></div>
+</footer>
+
+<script>(function(){var h=document.querySelector(".site-header");if(!h)return;var inner=h.querySelector(".site-header-inner");function check(){h.removeAttribute("data-collapsed");h.classList.remove("nav-open");if(inner.scrollWidth>inner.clientWidth+2)h.setAttribute("data-collapsed","");}window.addEventListener("resize",check);check();h.style.visibility="";})()</script>
+</body>
+</html>

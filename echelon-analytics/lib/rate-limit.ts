@@ -12,10 +12,12 @@ interface RateEntry {
 
 const MAX_MAP_SIZE = 200_000;
 const rateMap = new Map<string, RateEntry>();
+let lastPrune = Date.now();
 
 /** Prune expired entries to prevent memory leak. */
 function pruneRateMap(): void {
   const now = Date.now();
+  lastPrune = now;
   for (const [key, entry] of rateMap) {
     if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
       rateMap.delete(key);
@@ -34,7 +36,8 @@ export function isRateLimited(req: Request): boolean {
 
   const now = Date.now();
 
-  if (rateMap.size > MAX_MAP_SIZE) {
+  // Periodic cleanup: every 2 minutes or when map is too large
+  if (rateMap.size > MAX_MAP_SIZE || now - lastPrune > 120_000) {
     pruneRateMap();
   }
 

@@ -11,10 +11,16 @@ import { DB_PATH } from "../config.ts";
 import type { DbAdapter } from "./adapter.ts";
 
 let db: DbAdapter | null = null;
+let initPromise: Promise<DbAdapter> | null = null;
 
-export async function initDb(): Promise<DbAdapter> {
-  if (db) return db;
+export function initDb(): Promise<DbAdapter> {
+  if (db) return Promise.resolve(db);
+  if (initPromise) return initPromise;
+  initPromise = _initDb();
+  return initPromise;
+}
 
+async function _initDb(): Promise<DbAdapter> {
   const raw = new DatabaseSync(DB_PATH);
 
   // WAL mode for concurrent reads + append-heavy writes
@@ -44,21 +50,26 @@ export async function initDb(): Promise<DbAdapter> {
 
 /** Run schema migrations for existing databases. */
 async function migrate(adapter: DbAdapter): Promise<void> {
-  // Add experiment_id + variant_id columns to semantic_events (if missing)
+  // Add experiment_id + variant_id columns to semantic_events (check each individually for crash-safety)
   if (!await adapter.columnExists("semantic_events", "experiment_id")) {
     await adapter.exec(
       "ALTER TABLE semantic_events ADD COLUMN experiment_id TEXT",
     );
+    console.log(
+      "[echelon] Migration: added experiment_id to semantic_events",
+    );
+  }
+  if (!await adapter.columnExists("semantic_events", "variant_id")) {
     await adapter.exec(
       "ALTER TABLE semantic_events ADD COLUMN variant_id TEXT",
     );
-    await adapter.exec(
-      "CREATE INDEX IF NOT EXISTS idx_se_experiment ON semantic_events(experiment_id, variant_id)",
-    );
     console.log(
-      "[echelon] Migration: added experiment_id/variant_id to semantic_events",
+      "[echelon] Migration: added variant_id to semantic_events",
     );
   }
+  await adapter.exec(
+    "CREATE INDEX IF NOT EXISTS idx_se_experiment ON semantic_events(experiment_id, variant_id)",
+  );
 
   // Add UTM columns to visitor_views (check each individually for crash-safety)
   const utmViewCols = [
@@ -97,6 +108,13 @@ async function migrate(adapter: DbAdapter): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_se_utm_campaign
      ON semantic_events(utm_campaign, site_id)
      WHERE utm_campaign IS NOT NULL`,
+  );
+
+  // Partial index for bot-filtered queries (speeds up overview, top paths, referrers, etc.)
+  await adapter.exec(
+    `CREATE INDEX IF NOT EXISTS idx_vv_site_created_clean
+     ON visitor_views(site_id, created_at)
+     WHERE bot_score < 50`,
   );
 }
 

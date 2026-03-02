@@ -5,10 +5,15 @@
 
 import type { DbAdapter } from "./db/adapter.ts";
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2_000;
+
 export class BufferedWriter<T> {
   private buffer: T[] = [];
+  private startTimer: ReturnType<typeof setTimeout> | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private flushing: Promise<void> | null = null;
+  private dropped = 0;
 
   constructor(
     private readonly insert: (db: DbAdapter, batch: T[]) => Promise<void>,
@@ -24,13 +29,21 @@ export class BufferedWriter<T> {
   push(record: T): void {
     if (this.buffer.length < this.maxBuffer) {
       this.buffer.push(record);
+    } else {
+      this.dropped++;
+      if (this.dropped === 1 || this.dropped % 1000 === 0) {
+        console.warn(
+          `[echelon] ${this.label} buffer full (${this.maxBuffer}) — ${this.dropped} records dropped`,
+        );
+      }
     }
   }
 
   start(db: DbAdapter): void {
-    if (this.timer) return;
+    if (this.timer || this.startTimer) return;
     const jitter = Math.floor(Math.random() * 5_000);
-    setTimeout(() => {
+    this.startTimer = setTimeout(() => {
+      this.startTimer = null;
       this.flush(db);
       this.timer = setInterval(() => this.flush(db), this.flushMs);
     }, jitter);
@@ -42,6 +55,8 @@ export class BufferedWriter<T> {
   }
 
   async stop(db: DbAdapter): Promise<void> {
+    if (this.startTimer) clearTimeout(this.startTimer);
+    this.startTimer = null;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     await this.flush(db);
@@ -49,19 +64,41 @@ export class BufferedWriter<T> {
 
   private flush(db: DbAdapter): Promise<void> {
     if (this.flushing) return this.flushing;
-    if (this.buffer.length === 0) return Promise.resolve();
-    const batch = this.buffer.splice(0);
-    this.flushing = this.insert(db, batch)
-      .catch((e) => {
-        console.error(`[echelon] ${this.label} flush failed:`, e);
-        this.buffer.unshift(...batch);
-        if (this.buffer.length > this.maxBuffer) {
-          this.buffer.length = this.maxBuffer;
-        }
-      })
+    const count = this.buffer.length;
+    if (count === 0) return Promise.resolve();
+    // Snapshot the batch but keep in buffer until insert confirms
+    const batch = this.buffer.slice(0, count);
+    this.flushing = this.flushWithRetry(db, batch, count)
       .finally(() => {
         this.flushing = null;
       });
     return this.flushing;
+  }
+
+  private async flushWithRetry(
+    db: DbAdapter,
+    batch: T[],
+    count: number,
+  ): Promise<void> {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await this.insert(db, batch);
+        // Only remove records after successful insert
+        this.buffer.splice(0, count);
+        return;
+      } catch (e) {
+        if (attempt < MAX_RETRIES) {
+          console.warn(
+            `[echelon] ${this.label} flush attempt ${attempt}/${MAX_RETRIES} failed, retrying in ${RETRY_DELAY_MS}ms...`,
+          );
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
+        } else {
+          console.error(
+            `[echelon] ${this.label} flush failed after ${MAX_RETRIES} attempts — ${count} records will retry on next cycle:`,
+            e,
+          );
+        }
+      }
+    }
   }
 }

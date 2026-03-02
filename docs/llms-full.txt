@@ -1,4 +1,4 @@
-# ea.js — Echelon Analytics: Full Documentation
+# Echelon Analytics: Full Documentation
 
 > Privacy-first, self-hosted, cookieless web analytics. Single script tag, single SQLite database. AGPL-3.0.
 
@@ -40,7 +40,9 @@ All commands run from echelon-analytics/:
 deno task dev        # Development server (Vite HMR)
 deno task build      # Production build
 deno task start      # Start production server (must build first)
-deno task check      # Check formatting, lint, and type-check
+deno task check      # Format, lint, type-check, and run tests
+deno task test       # Run server-side tests (unit + integration)
+deno task test:e2e   # Run browser E2E tests (requires Chromium)
 deno fmt --check .   # Format check
 deno lint .          # Lint
 deno check main.ts   # Type-check
@@ -63,19 +65,32 @@ The container exposes port 1947. Mount a volume at /app/data/ for the SQLite dat
 - Non-root user echelon (UID 1001)
 - Health check: GET /api/health every 30s
 
-## Reverse Proxy (Caddy)
+## Reverse Proxy
+
+The application already sets CSP, X-Frame-Options, and X-Content-Type-Options on HTML responses. Do not duplicate those in your reverse proxy — it causes double headers. The proxy should add HSTS, Permissions-Policy, and strip the Server header. See confs/Caddyfile.example for a complete configuration.
+
+### Caddy
 
 ```
 echelon.example.com {
     reverse_proxy localhost:1947
+    encode gzip zstd
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
 }
 ```
 
-## Reverse Proxy (Nginx)
+### Nginx
 
 ```
 server {
+    listen 443 ssl;
     server_name echelon.example.com;
+
     location / {
         proxy_pass http://127.0.0.1:1947;
         proxy_set_header Host $host;
@@ -83,6 +98,17 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+
+    # Headers the app does NOT set — safe to add here.
+    # Do NOT add CSP, X-Frame-Options, or X-Content-Type-Options
+    # (the app already sets those on HTML responses).
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    server_tokens off;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml image/svg+xml;
 }
 ```
 
@@ -120,6 +146,70 @@ Both auth modes can be used simultaneously.
 ## Single-Process Constraint
 
 All state is in memory (sessions, rate limiter, burst maps, buffered writers). Must run with a single Deno worker — do not use --parallel with deno serve.
+
+## Public Mode
+
+Set ECHELON_PUBLIC_MODE=true for a read-only public dashboard:
+
+- No authentication required — anyone can view all admin pages
+- All mutations blocked — POST, PATCH, DELETE return 403 with error "read_only"
+- Mutation controls (forms, delete buttons) hidden in admin UI
+- Internal stats redacted (buffer sizes, RPS, uptime) from API responses
+- robots.txt switches to Allow with Sitemap directive
+- sitemap.xml includes all admin page URLs
+- /api/health and POST /api/telemetry remain open (exempt from write block)
+
+Use for public demo dashboards. The live instance at ea.islets.app runs in public mode with anonymized data.
+
+## Security Hardening
+
+### CSRF Protection
+
+Cookie-authenticated mutating requests (POST, PATCH, DELETE) require the Origin or Referer header's host to match the request Host header. Compares hosts (not full origins) so it works behind reverse proxies that change the scheme.
+
+### PoW Nonce Tracking
+
+Solved proof-of-work tokens are tracked in an in-memory Set. Replaying a previously-used token adds penalty points (+40) to the bot score instead of passing verification. Nonces are evicted when the challenge window expires (default 10 minutes + 1 minute grace period).
+
+### Response Headers
+
+All HTML responses include security headers:
+
+- Content-Security-Policy (CSP) with script-src, style-src, connect-src, img-src directives
+- X-Frame-Options: DENY (prevents clickjacking)
+- X-Content-Type-Options: nosniff (prevents MIME sniffing)
+- Referrer-Policy: strict-origin-when-cross-origin
+
+### Session Security
+
+- PBKDF2-SHA256 password hashing with 600,000 iterations
+- Random session tokens (crypto.randomUUID)
+- 24-hour absolute TTL + 30-minute idle timeout
+- Sessions pruned from memory every 30 minutes
+- Login rate-limited per IP (5 attempts per 15-minute window)
+- Prior sessions invalidated on new login
+
+### LIKE Query Escaping
+
+Admin search queries (visitors, events) escape % and _ characters in user input to prevent LIKE injection in SQL queries.
+
+## Anonymization
+
+Sites listed in ECHELON_ANONYMIZE_SITES get deterministic anonymization applied to all API responses:
+
+- Visitor IDs: HMAC-SHA256 hashed with a key derived from ECHELON_SECRET + current date. Same visitor on the same day always maps to the same anonymous ID.
+- Country codes: Replaced with fictional planet names (30+ exoplanet-themed names)
+- Device types: Mapped to themed aliases (fisherman names)
+- OS names: Mapped to NSA codename-style aliases
+- Daily key rotation ensures anonymized IDs change each day
+
+The public demo dashboard at ea.islets.app uses this to display real traffic patterns without exposing any visitor information.
+
+## Telemetry
+
+Opt-in anonymous usage tracking (no visitor data, PII, or page content). An admin UI banner lets operators opt in or out. The setting is stored in the database (site_settings table) and can be overridden with ECHELON_TELEMETRY=true or ECHELON_TELEMETRY=false environment variable.
+
+See https://ea.js.org/telemetry.html for details.
 
 ---
 
@@ -216,19 +306,153 @@ The tracker automatically patches pushState, replaceState, and listens for popst
 
 ## UTM Campaign Tracking
 
-UTM parameters are automatically extracted from the URL and persisted in sessionStorage:
+Echelon tracks all five standard UTM parameters. Attribution is session-scoped and persisted across page loads.
 
-- utm_campaign
-- utm_source
-- utm_medium
-- utm_content
-- utm_term
+### Supported Parameters
 
-All tracked events within the session inherit UTM parameters.
+| Parameter | Purpose | Example |
+|-----------|---------|---------|
+| utm_campaign | Campaign name / ID | spring-2026 |
+| utm_source | Traffic source | newsletter, google |
+| utm_medium | Marketing medium | email, cpc, social |
+| utm_content | Ad creative / content variant | hero-banner, sidebar-link |
+| utm_term | Search keyword / term | analytics+tool |
+
+### How It Works
+
+1. Visitor arrives with UTM parameters in the URL (e.g. ?utm_campaign=spring-2026&utm_source=newsletter&utm_medium=email)
+2. Tracker extracts all five params and stores them in sessionStorage (key: _eutm)
+3. Every pageview beacon (/b.gif) includes the UTM parameters for the rest of the session — even on pages without UTM in the URL
+4. SPA navigation: on route changes (pushState/replaceState), tracker re-reads URL params. New utm_campaign updates the session; otherwise stored values persist
+5. Server validates: the beacon endpoint checks utm_campaign against a whitelist of active campaigns (refreshed from DB every 60 seconds). Unknown campaigns are silently dropped
+
+### Setting Up Campaigns
+
+Campaigns must be registered before they appear in stats:
+
+API:
+```
+POST /api/campaigns
+{ "id": "spring-2026", "name": "Spring Launch 2026", "utm_campaign": "spring-2026", "site_id": "default" }
+```
+
+Or use the form at /admin/campaigns. Fields: id (URL-safe slug), name, utm_campaign (exact URL value), site_id.
+
+### Campaign Lifecycle
+
+- active: UTM data is recorded, appears in stats
+- paused: New UTM data silently dropped, existing data remains in stats
+- archived: Same as paused, hidden from default campaign list
+
+Change status: PATCH /api/campaigns/:id with { "status": "paused" }
+
+### Campaign Stats
+
+GET /api/stats/campaigns?id=X returns:
+- Summary: total views and unique visitors
+- By Source: breakdown by utm_source (views + visitors)
+- By Medium: breakdown by utm_medium
+- By Content: breakdown by utm_content
+- By Term: breakdown by utm_term
+- Daily Trend: views per day over selected period
+- Top Landing Pages: pages visitors entered through
+
+All stats exclude bot traffic (bot_score >= 50). Default lookback 30 days (max 90).
+
+### UTM URL Format
+
+```
+https://example.com/sale?utm_campaign=spring-2026&utm_source=newsletter&utm_medium=email&utm_content=hero-cta
+```
+
+All parameters optional except utm_campaign, which must match an active campaign. The whitelist prevents spam traffic from polluting stats — unknown utm_campaign values are silently dropped.
 
 ## A/B Experiments
 
-Create experiments via the admin dashboard or API. Variants are allocated based on weight. The tracker automatically picks up experiment assignments and includes experiment_id and variant_id in all events.
+Run split tests to measure the impact of changes. Echelon tracks impressions, conversions, and calculates statistical significance automatically.
+
+### How It Works
+
+1. Create an experiment with variants and a conversion metric (event type to measure)
+2. Your application assigns visitors to variants and sends events with experiment attribution
+3. Echelon counts unique sessions per variant (impressions) and sessions that triggered the metric event (conversions)
+4. Statistical significance is calculated using a two-proportion z-test
+
+### Creating an Experiment
+
+API:
+```
+POST /api/experiments
+{
+  "experiment_id": "checkout-v2",
+  "name": "Checkout Redesign",
+  "description": "Test new checkout flow vs original",
+  "metric_event_type": "purchase",
+  "allocation_percent": 100,
+  "variants": [
+    { "variant_id": "control", "name": "Original", "weight": 50, "is_control": true },
+    { "variant_id": "redesign", "name": "New Flow", "weight": 50 }
+  ]
+}
+```
+
+Or use the form at /admin/experiments. Max 20 variants. Each variant has an optional config field (JSON, max 4096 chars).
+
+### Variant Weights
+
+Weights are relative, not percentages. Two variants with weights 50/50 get 50% each. Weights 1/1 produce the same split. Three variants 2/1/1 get 50%/25%/25%.
+
+Your application reads weights and assigns visitors (e.g. hash of visitor ID modulo total weight). Echelon stores weights but does not perform assignment.
+
+### Sending Experiment Events
+
+Include experiment_id and variant_id in event data:
+
+```js
+// Track impression
+window.echelon.track("page_view", { experiment_id: "checkout-v2", variant_id: "redesign" });
+
+// Track conversion
+window.echelon.track("purchase", { experiment_id: "checkout-v2", variant_id: "redesign" });
+```
+
+Impressions = unique sessions that sent any event for experiment+variant.
+Conversions = unique sessions that sent the metric_event_type event.
+
+### Experiment Lifecycle
+
+- draft: Created but not yet active. Events still recorded if sent.
+- active: Running. Sets started_at on first activation.
+- paused: Temporarily stopped. Events still recorded.
+- completed: Finished. Sets ended_at. Results frozen.
+- archived: Same as completed, hidden from default views.
+
+Change status: PATCH /api/experiments/:id with { "status": "active" }
+
+### Results
+
+GET /api/stats/experiments?experiment_id=X returns per-variant:
+- Impressions: unique sessions enrolled
+- Conversions: unique sessions that triggered metric event
+- Conversion Rate: conversions / impressions
+- Relative Uplift: (variant_rate - control_rate) / control_rate (non-control only)
+- Significance: statistical significance level
+
+### Statistical Significance
+
+Uses a two-proportion z-test:
+1. Pooled proportion: p = (c_control + c_variant) / (n_control + n_variant)
+2. Standard error: SE = sqrt(p * (1-p) * (1/n1 + 1/n2))
+3. Z-score: z = |rate_variant - rate_control| / SE
+
+| Z-Score | Significance |
+|---------|-------------|
+| >= 2.576 | 99% significant (p < 0.01) |
+| >= 1.960 | 95% significant (p < 0.05) |
+| >= 1.645 | 90% significant (p < 0.10) |
+| < 1.645 | Not statistically significant |
+
+Minimum data: 100 impressions per variant required before significance is calculated.
 
 ## Cookieless by Default
 
@@ -242,12 +466,21 @@ Add data-cookie to enable a persistent visitor cookie for returning visitor trac
 
 ## Admin Dashboard
 
+The admin UI at /admin/ provides a full-featured analytics dashboard:
+
+- Live dashboard with Now gauge, 60-minute and 24-hour trend charts, recent visitors/events (auto-refreshes every 10s)
 - Overview with KPIs, daily trends, top pages, devices, countries, referrers
+- Visitor views listing — filterable, sortable, paginated
+- Visitor detail pages with full history, events, bot scores, exclude/include controls
+- Semantic events listing with type badges and filtering
 - Realtime visitor monitoring (10-second polling)
 - Bot management — suspicious visitors, exclude/include controls
 - A/B experiments — create, manage, view conversion uplift
 - UTM campaigns — track and break down by source, medium, content
 - Performance metrics — CI/CD benchmark tracking with trends
+- Norway-inspired professional design with navy and burgundy palette
+- Persistent site selector and date range picker in navigation
+- Configurable timezone display for all admin timestamps (ECHELON_DISPLAY_TIMEZONE)
 
 ---
 
@@ -272,10 +505,12 @@ GET /api/health — Returns { "status": "ok", "service": "Echelon Analytics" }.
 ## Stats
 
 GET /api/stats/overview?site_id=X&days=N — Overview statistics. days defaults to 30 (max 730).
+GET /api/stats/dashboard?site_id=X — Live dashboard data: active visitors (now), 60-min trend (per-minute), 24h trend (per-hour), recent visitors and events.
 GET /api/stats/realtime?site_id=X — Active visitors in last 5 minutes.
 GET /api/stats/summary — Summary across all sites.
 GET /api/stats/vitals — Live system vitals: buffer sizes and 24h aggregates.
 GET /api/stats/campaigns?days=N — Campaign statistics. Optional id param for breakdown.
+GET /api/stats/campaign-events?site_id=X&days=N&event_type=Y — Campaign-to-event correlation: visitors, event rate, events per visitor per campaign vs organic. event_type optional.
 GET /api/stats/experiments?experiment_id=X — Experiment statistics with significance testing.
 
 ## Campaigns
@@ -318,6 +553,7 @@ POST /api/ingest — Bulk ingest visitor views and events. Max 1 MB body.
 
 400 — Missing or invalid parameters
 401 — Unauthorized
+403 — Forbidden (CSRF failure or PUBLIC_MODE write attempt: { error: "read_only" })
 404 — Resource not found
 409 — Conflict (duplicate resource)
 413 — Request body too large
@@ -358,6 +594,7 @@ Requests matching any pattern in ECHELON_BOT_UA_PATTERNS are dropped before scor
 | No referrer + deep path | Direct visit to path with >= 2 segments | +5 |
 | PoW token missing | No proof-of-work token sent | +15 |
 | PoW token invalid | Token fails verification | +25 |
+| PoW token replayed | Previously-used nonce | +40 |
 
 Score is capped at 100.
 
@@ -378,7 +615,7 @@ Server verification tries all combinations of:
 - Current + previous WASM slots (covers 6-hour rotation)
 - Last N minute buckets (configurable via ECHELON_CHALLENGE_WINDOW_MINUTES, default 10)
 
-Returns "valid", "missing", or "invalid" — each adding different penalty points.
+Returns "valid", "missing", "invalid", or "replayed" — each adding different penalty points. Used nonces are tracked in memory and replaying a token adds +40 points instead of passing.
 
 ## Burst Detection
 
@@ -480,12 +717,23 @@ deno eval "import{hashPassword}from'./lib/auth.ts';console.log(await hashPasswor
 | ECHELON_TRUST_GEO_HEADERS | false | Trust cloudfront-viewer-country / x-country-code |
 | ECHELON_ALLOWED_ORIGINS | (empty) | Comma-separated domains allowed to load the tracker. Empty = all |
 
+## Admin UI
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| ECHELON_LIVE_STATS_MINUTES | 10 | Time window (minutes) for live stats in the admin nav bar |
+| ECHELON_DISPLAY_TIMEZONE | UTC | IANA timezone for admin UI timestamps (e.g. Europe/Oslo). Data stored in UTC |
+
 ## Miscellaneous
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | ECHELON_COOKIE_CONSENT | false | Show consent banner before setting visitor cookie |
 | ECHELON_IGNORED_SITES | (empty) | Comma-separated site IDs to silently ignore. "smoke-test" always ignored |
+| ECHELON_PUBLIC_MODE | false | Read-only public dashboard (no auth, mutations blocked) |
+| ECHELON_ANONYMIZE_SITES | (empty) | Comma-separated site IDs to anonymize in API responses |
+| ECHELON_TELEMETRY | (per-instance) | Override telemetry opt-in: "true" or "false" |
+| ECHELON_SHUTDOWN_TIMEOUT_MS | 60000 | Graceful shutdown timeout in ms for flushing buffers |
 
 ## Example .env
 
@@ -501,7 +749,73 @@ ECHELON_BEHIND_CLOUDFLARE=true
 ECHELON_SUSPECT_COUNTRIES=CN
 ECHELON_SUSPECT_POINTS=30
 ECHELON_RATE_LIMIT_MAX=100
+ECHELON_LIVE_STATS_MINUTES=10
+ECHELON_DISPLAY_TIMEZONE=Europe/Oslo
+ECHELON_PUBLIC_MODE=false
+ECHELON_ANONYMIZE_SITES=demo-site
+ECHELON_TELEMETRY=true
 ```
+
+---
+
+# Testing
+
+## Overview
+
+214 server-side tests and 14 browser E2E tests. Tests are integrated into `deno task check` and run automatically before every tagged release via scripts/tag-release.sh.
+
+## Running Tests
+
+```
+deno task test       # Server-side tests (unit + integration, excludes e2e)
+deno task test:e2e   # Browser E2E tests (requires Chromium)
+deno task check      # Full pipeline: fmt + lint + typecheck + tests
+```
+
+## Test Structure
+
+Tests live in echelon-analytics/tests/:
+
+| File | Module Under Test | Cases |
+|------|-------------------|-------|
+| _helpers.ts | Shared test infrastructure (in-memory DB, fixture inserters) | — |
+| bot-score_test.ts | lib/bot-score.ts — UA detection, scoring, burst, PoW penalties | 25 |
+| pagination_test.ts | lib/pagination.ts — offset, clamping, totalPages | 6 |
+| config_test.ts | lib/config.ts — constantTimeEquals, validateSiteId | 7 |
+| cookie_test.ts | lib/cookie.ts — getCookie, getRequestCookie | 8 |
+| anonymize_test.ts | lib/anonymize.ts — HMAC hashing, fictional names, determinism | 13 |
+| challenge_test.ts | lib/challenge.ts — tokenPenalty, generateChallenge, verifyToken | 8 |
+| session_test.ts | lib/session.ts — create, get, delete, expiry, prune | 8 |
+| rate-limit_test.ts | lib/rate-limit.ts — isRateLimited | 2 |
+| request-stats_test.ts | lib/request-stats.ts — recordRequest, getRequestStats | 10 |
+| buffered-writer_test.ts | lib/buffered-writer.ts — push, flush, retry, overflow | 7 |
+| db-adapter_test.ts | lib/db/sqlite-adapter.ts — query, run, transactions, rollback | 11 |
+| stats_test.ts | lib/stats.ts — overview, realtime, campaigns, experiments, dashboard | 16 |
+| maintenance_test.ts | lib/maintenance.ts — rollup, purge, bot exclusion, idempotency | 9 |
+| root-middleware_test.ts | routes/_middleware.ts — CORS, origin validation, referrer checks | 11 |
+| api-middleware_test.ts | routes/api/_middleware.ts — auth, CSRF, PUBLIC_MODE, health bypass | 12 |
+| beacon_test.ts | routes/b.gif.ts + lib/beacon.ts — pixel beacon, bot scoring, SPA | 7 |
+| events-endpoint_test.ts | routes/e.ts + lib/events-endpoint.ts — event POST, validation | 12 |
+| public-mode_test.ts | Cross-cutting PUBLIC_MODE lockdown and CSRF logic | 15 |
+| robots_test.ts | routes/robots.txt.ts — public vs non-public mode | 3 |
+| sitemap_test.ts | routes/sitemap.xml.ts — admin URLs in public mode | 3 |
+
+## E2E Tests
+
+Browser tests use @astral/astral (Deno-native headless Chromium). They live in tests/e2e/ and are excluded from the default test task since Docker builds typically lack Chromium.
+
+| File | What It Tests |
+|------|---------------|
+| tracker_test.ts | Script loading, PoW challenge, page rendering |
+| admin-nav_test.ts | Navigation elements, theme selector, links |
+| islands_test.ts | Campaign, experiment, bot, settings page rendering |
+| public-mode_test.ts | Hidden mutation controls, blocked API writes |
+
+## Test Isolation
+
+- Each test file gets a fresh in-memory SQLite database via createTestDb()
+- Module-level state (sessions, rate limiters) uses unique keys or sequential execution
+- Config constants read at import time — tests simulate logic rather than re-importing with different env vars
 
 ---
 
@@ -573,12 +887,15 @@ Failed flushes re-add records to buffer. Graceful shutdown flushes remaining buf
 - Cookieless (default): HMAC-SHA256(IP + UA + siteId + date) → 16-char hex. Resets daily.
 - Cookie (opt-in): HttpOnly _ev cookie, 16-char hex, 30-day TTL. Enabled with data-cookie.
 
-## Authentication
+## Authentication & Security
 
 - Bearer token: ECHELON_SECRET env var, constant-time comparison.
 - Password: PBKDF2-SHA256, 600k iterations, 256-bit key, 128-bit salt. Web Crypto API only.
-- Sessions: In-memory, random UUID tokens, 24h TTL, pruned every 30 minutes.
-- CSRF: Mutating requests with cookie auth require matching Origin/Referer header.
+- Sessions: In-memory, random UUID tokens, 24h TTL, 30-min idle timeout, pruned every 30 minutes.
+- CSRF: Mutating requests with cookie auth require Origin/Referer host to match request Host.
+- PoW nonce tracking: Used tokens tracked in-memory, replay attempts penalized (+40 bot score).
+- Response headers: CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy.
+- Login rate limiting: 5 attempts per IP per 15-minute window.
 
 ## Directory Structure
 
@@ -598,6 +915,9 @@ echelon-analytics/
     config.ts              Env var centralization
     maintenance.ts         Daily rollup and purge
     stats.ts               Stats queries
+
+    admin-stats.ts         Live stats queries
+    format.ts              Date/time formatting
     rate-limit.ts          Per-IP rate limiter
     db/
       adapter.ts           Database interface
@@ -613,7 +933,118 @@ echelon-analytics/
     admin/                 Admin UI routes
   islands/                 Preact interactive components
   components/              Server-only Preact components
+  tests/
+    _helpers.ts            Test DB factory, fixture inserters
+    _e2e_helpers.ts        Browser harness (Astral/Chromium)
+    *_test.ts              Server-side test files
+    e2e/                   Browser E2E tests
 ```
+
+---
+
+# MCP Server
+
+## Overview
+
+Echelon Analytics includes a read-only Model Context Protocol (MCP) server that lets AI agents (Claude Code, Claude Desktop, etc.) query analytics data directly. The server calls the Echelon REST API over HTTP — it never touches the database directly. Works with any instance: local, remote, Docker, or cloud.
+
+## Quick Start
+
+```
+# Public instance (no token needed)
+ECHELON_URL=https://ea.islets.app deno task mcp
+
+# Local instance with authentication
+ECHELON_URL=http://localhost:1947 ECHELON_SECRET=your-token deno task mcp
+```
+
+## How It Works
+
+1. Set ECHELON_URL to point at any Echelon Analytics instance
+2. The MCP server starts and connects to the AI agent via stdio (JSON-RPC)
+3. When you ask a question, the AI agent picks the right MCP tool
+4. The MCP server calls the corresponding GET /api/* endpoint (read-only — never POST, PATCH, or DELETE)
+5. The API response is returned to the agent, which summarizes it for you
+
+For authenticated instances, set ECHELON_SECRET — the server passes it as a Bearer token for read-only access. The server only ever calls GET endpoints; it cannot create, modify, or delete any data even if the token has write privileges. For PUBLIC_MODE instances (like the public demo), no token is needed.
+
+## Available Tools
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| analytics_overview | Site overview: visits, uniques, top paths, devices, countries, referrers, daily trend | site_id (required), days (1-730, default 30) |
+| analytics_realtime | Active visitors and top pages in last 5 minutes | site_id (required) |
+| analytics_campaigns | UTM campaign stats with view/visitor counts | days (1-90, default 30), campaign_id (optional) |
+| analytics_campaign_detail | Campaign breakdown by source, medium, content, term, landing pages | campaign_id (required), days (1-90, default 30) |
+| analytics_experiments | A/B experiment results with conversion rates and statistical significance | experiment_id (optional) |
+| analytics_campaign_events | Campaign-to-event correlation: visitors, event-triggering visitors, event rate, events per visitor, event type breakdown per campaign vs organic | site_id (required), days (1-90, default 30), event_type (optional) |
+| analytics_dashboard | Live dashboard: active visitors, hourly/daily trends, recent visitors/events | site_id (required) |
+| list_campaigns | List all registered UTM campaigns with IDs, names, utm_campaign values, site IDs, and statuses | (none) |
+| list_experiments | List all A/B experiments with IDs, names, statuses, metric event types, and variant definitions | (none) |
+
+All 9 tools are read-only. The server only calls GET endpoints — it cannot create, modify, or delete any data.
+
+## Client Setup
+
+### Claude Code (auto-discovery)
+
+The repository includes .claude/settings.json which registers the MCP server automatically. Edit the env block to point at your instance:
+
+```
+{
+  "mcpServers": {
+    "echelon-analytics": {
+      "command": "deno",
+      "args": ["task", "mcp"],
+      "cwd": "echelon-analytics",
+      "env": {
+        "ECHELON_URL": "https://your-instance.example.com",
+        "ECHELON_SECRET": "your-api-token"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Add to ~/Library/Application Support/Claude/claude_desktop_config.json (macOS), %APPDATA%\Claude\claude_desktop_config.json (Windows), or ~/.config/Claude/claude_desktop_config.json (Linux):
+
+```
+{
+  "mcpServers": {
+    "echelon-analytics": {
+      "command": "deno",
+      "args": ["task", "mcp"],
+      "cwd": "/path/to/echelon-analytics",
+      "env": {
+        "ECHELON_URL": "https://your-instance.example.com",
+        "ECHELON_SECRET": "your-api-token"
+      }
+    }
+  }
+}
+```
+
+### Other MCP Clients
+
+Any MCP-compatible client can connect via stdio transport. Set ECHELON_URL (and optionally ECHELON_SECRET) as environment variables. JSON-RPC on stdout, logs on stderr.
+
+## Configuration
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| ECHELON_URL | Yes | Base URL of the Echelon Analytics instance (e.g. https://ea.islets.app) |
+| ECHELON_SECRET | No | Bearer token for read-only API access. Not needed for PUBLIC_MODE instances. |
+
+## Architecture
+
+- API-backed: calls GET /api/* endpoints over HTTP — never touches the database directly
+- Works with any instance (local, remote, Docker, cloud)
+- Respects PUBLIC_MODE, anonymization, and access controls
+- Read-only by design: only calls GET endpoints, cannot create, modify, or delete any data even with a write-capable token. This is a deliberate constraint to maintain data authenticity while learning MCP usage patterns.
+- Stdio transport (JSON-RPC)
+- Dependencies: @modelcontextprotocol/sdk, zod
 
 ---
 

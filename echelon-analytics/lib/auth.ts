@@ -53,7 +53,7 @@ export async function verifyPassword(
   if (parts.length !== 4 || parts[0] !== "pbkdf2") return false;
 
   const iterations = parseInt(parts[1], 10);
-  if (!iterations || iterations < 1) return false;
+  if (!iterations || iterations < 1 || iterations > 10_000_000) return false;
 
   const salt = fromBase64(parts[2]);
   const expected = fromBase64(parts[3]);

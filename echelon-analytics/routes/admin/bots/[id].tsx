@@ -3,6 +3,8 @@ import { define } from "../../../utils.ts";
 import { AdminNav } from "../../../components/AdminNav.tsx";
 import { getLiveStats } from "../../../lib/admin-stats.ts";
 import BotActions from "../../../islands/BotActions.tsx";
+import { PUBLIC_MODE } from "../../../lib/config.ts";
+import { formatTime } from "../../../lib/format.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -59,77 +61,86 @@ export default define.page<typeof handler>(function VisitorDetailPage({
     <AdminNav
       title={`Visitor ${visitorId.slice(0, 12)}...`}
       liveStats={liveStats}
+      siteId={state.siteId}
+      knownSites={state.knownSites}
+      days={state.days}
+      url={state.url}
+      telemetryState={state.telemetryState}
     >
       <div class="flex gap-2 mb-4 items-center">
-        <code class="visitor-id bg-[#111] border border-[#1a3a1a] px-2 py-1 text-[#33ff33]">
+        <code class="visitor-id bg-[var(--ea-surface)] border border-[var(--ea-border)] px-2 py-1 text-[var(--ea-primary)]">
           {visitorId}
         </code>
         {isExcluded && (
           <span
-            class="text-[#ff3333] text-xs px-2 py-1 border border-[#661111]"
-            style="background:#1a0a0a"
+            class="text-[var(--ea-danger)] text-xs px-2 py-1 border border-[var(--ea-danger-border)]"
+            style="background:var(--ea-danger-bg)"
           >
             EXCLUDED
           </span>
         )}
-        <BotActions visitorId={visitorId} isExcluded={isExcluded} />
+        <BotActions
+          visitorId={visitorId}
+          isExcluded={isExcluded}
+          readOnly={PUBLIC_MODE}
+        />
       </div>
 
-      <h3 class="text-sm text-[#33ff33] mb-2">
+      <h3 class="text-sm text-[var(--ea-primary)] mb-2">
         Page Views ({views.length})
       </h3>
-      <div class="bg-[#111] border border-[#1a3a1a] overflow-hidden mb-4">
+      <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden mb-4">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-[#1a3a1a]">
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+            <tr class="border-b border-[var(--ea-border)]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Path
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Site
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Score
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Device
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Country
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Interaction
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Time
               </th>
             </tr>
           </thead>
           <tbody>
             {views.map((v, i) => (
-              <tr key={i} class="border-b border-[#0d1a0d]">
-                <td class="px-4 py-1.5 truncate max-w-[200px] text-[#1a9a1a]">
+              <tr key={i} class="border-b border-[var(--ea-surface-alt)]">
+                <td class="px-4 py-1.5 truncate max-w-[200px] text-[var(--ea-text)]">
                   {v.path as string}
                 </td>
-                <td class="px-4 py-1.5 text-[#1a9a1a]">
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {v.site_id as string}
                 </td>
                 <td class="px-4 py-1.5">
                   {scoreBadge(v.bot_score as number)}
                 </td>
-                <td class="px-4 py-1.5 text-[#1a9a1a]">
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {v.device_type as string}
                 </td>
-                <td class="px-4 py-1.5 text-[#1a9a1a]">
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {v.country_code as string}
                 </td>
-                <td class="px-4 py-1.5 tabular-nums text-[#33ff33]">
+                <td class="px-4 py-1.5 tabular-nums text-[var(--ea-primary)]">
                   {v.interaction_ms
                     ? `${((v.interaction_ms as number) / 1000).toFixed(1)}s`
                     : "-"}
                 </td>
-                <td class="px-4 py-1.5 text-[#1a5a1a]">
-                  {(v.created_at as string).slice(0, 16)}
+                <td class="px-4 py-1.5 text-[var(--ea-muted)]">
+                  {formatTime(v.created_at as string)}
                 </td>
               </tr>
             ))}
@@ -139,49 +150,49 @@ export default define.page<typeof handler>(function VisitorDetailPage({
 
       {events.length > 0 && (
         <>
-          <h3 class="text-sm text-[#33ff33] mb-2">
+          <h3 class="text-sm text-[var(--ea-primary)] mb-2">
             Semantic Events ({events.length})
           </h3>
-          <div class="bg-[#111] border border-[#1a3a1a] overflow-hidden">
+          <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
             <table class="w-full text-sm">
               <thead>
-                <tr class="border-b border-[#1a3a1a]">
-                  <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+                <tr class="border-b border-[var(--ea-border)]">
+                  <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                     Type
                   </th>
-                  <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+                  <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                     Site
                   </th>
-                  <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+                  <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                     Score
                   </th>
-                  <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+                  <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                     Data
                   </th>
-                  <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+                  <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                     Time
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {events.map((e, i) => (
-                  <tr key={i} class="border-b border-[#0d1a0d]">
-                    <td class="px-4 py-1.5 text-[#1a9a1a]">
+                  <tr key={i} class="border-b border-[var(--ea-surface-alt)]">
+                    <td class="px-4 py-1.5 text-[var(--ea-text)]">
                       {e.event_type as string}
                     </td>
-                    <td class="px-4 py-1.5 text-[#1a9a1a]">
+                    <td class="px-4 py-1.5 text-[var(--ea-text)]">
                       {e.site_id as string}
                     </td>
                     <td class="px-4 py-1.5">
                       {scoreBadge(e.bot_score as number)}
                     </td>
                     <td class="px-4 py-1.5 truncate max-w-[200px]">
-                      <span class="text-xs text-[#1a5a1a]">
+                      <span class="text-xs text-[var(--ea-muted)]">
                         {e.data as string}
                       </span>
                     </td>
-                    <td class="px-4 py-1.5 text-[#1a5a1a]">
-                      {(e.created_at as string).slice(0, 16)}
+                    <td class="px-4 py-1.5 text-[var(--ea-muted)]">
+                      {formatTime(e.created_at as string)}
                     </td>
                   </tr>
                 ))}

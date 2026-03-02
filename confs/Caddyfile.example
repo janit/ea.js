@@ -1,14 +1,15 @@
-ea.islets.app {
+echelon.example.com {
 	reverse_proxy 127.0.0.1:1947
 
 	encode gzip zstd
 
 	header {
-		X-Content-Type-Options nosniff
-		X-Frame-Options DENY
-		Referrer-Policy strict-origin-when-cross-origin
+		# The application sets CSP, X-Frame-Options, and
+		# X-Content-Type-Options on HTML responses already.
+		# These Caddy headers add HSTS, Permissions-Policy,
+		# Referrer-Policy, and strip the Server header.
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+		Referrer-Policy strict-origin-when-cross-origin
 		Permissions-Policy "geolocation=(), microphone=(), camera=()"
 		-Server
 	}

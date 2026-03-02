@@ -1,10 +1,10 @@
-# ea.js — Echelon Analytics
+# Echelon Analytics
 
 > Privacy-first, self-hosted, cookieless web analytics. Single script tag, single SQLite database. AGPL-3.0.
 
 ## Overview
 
-ea.js is a lightweight alternative to Google Analytics. It tracks pageviews, bounces, sessions, scroll depth, clicks, outbound links, file downloads, form submissions, Core Web Vitals, UTM campaigns, and A/B experiments — all without cookies by default.
+Echelon Analytics is a lightweight alternative to Google Analytics. It tracks pageviews, bounces, sessions, scroll depth, clicks, outbound links, file downloads, form submissions, Core Web Vitals, UTM campaigns, and A/B experiments — all without cookies by default.
 
 Visitors are identified using a daily-rotating HMAC hash (IP + UA + site + date). No cross-day tracking, no cookie consent banners needed (GDPR/ePrivacy compliant). Optional persistent cookies via `data-cookie` attribute.
 
@@ -17,21 +17,65 @@ Built with Deno, Fresh 2.2.0, Preact, SQLite (WAL mode), Tailwind CSS v4, and Vi
 ```
 cd echelon-analytics
 deno task dev
+deno task test       # Run 214 server-side tests
+deno task test:e2e   # Browser E2E tests (requires Chromium)
 ```
 
 ```html
 <script src="https://your-host/ea.js" data-site="my-site"></script>
 ```
 
+## Admin Dashboard
+
+Full-featured admin UI at `/admin/` with:
+- Live dashboard: Now gauge, 60-minute and 24-hour trend charts, recent visitors/events (auto-refreshes every 10s)
+- Overview with KPIs, daily trends, top pages, devices, countries, referrers
+- Visitor views listing — filterable, sortable, paginated with visitor detail pages
+- Semantic events listing with type badges and filtering
+- Bot management — suspicious visitors, exclude/include controls
+- A/B experiments — create, manage, view conversion uplift
+- UTM campaigns — track and break down by source, medium, content
+- Performance metrics — CI/CD benchmark tracking with trends
+- Norway-inspired professional design with navy and burgundy palette
+- Configurable timezone display (`ECHELON_DISPLAY_TIMEZONE`)
+- Persistent site selector and date range picker in navigation
+
 ## Documentation
 
 - [Installation](https://ea.js.org/installation.html): Setup, Docker, reverse proxy, auth
-- [Features](https://ea.js.org/features.html): Script attributes, JS API, auto-tracked events, SPA support
-- [API Reference](https://ea.js.org/api.html): REST endpoints for stats, campaigns, experiments, bots
+- [Features](https://ea.js.org/features.html): Script attributes, JS API, auto-tracked events, SPA support, admin dashboard
+- [API Reference](https://ea.js.org/api.html): REST endpoints for stats, live dashboard, campaigns, experiments, bots
 - [Bot Defense](https://ea.js.org/bot-defense.html): PoW system, scoring factors, Cloudflare integration
 - [Configuration](https://ea.js.org/configuration.html): All environment variables with defaults
-- [Architecture](https://ea.js.org/architecture.html): Request flow, database schema, data pipeline
+- [Architecture](https://ea.js.org/architecture.html): Request flow, database schema, data pipeline, theming
+- [Portable Data](https://ea.js.org/portable-data.html): SQLite schema, example queries, data lifecycle
+- [MCP Server](https://ea.js.org/mcp.html): Model Context Protocol server for AI agent integration
+- [Telemetry](https://ea.js.org/telemetry.html): Opt-in anonymous admin usage data — what it collects, how to control it
 - [Full Documentation for LLMs](https://ea.js.org/llms-full.txt): Complete reference in a single file
+
+## Public Mode
+
+Set `ECHELON_PUBLIC_MODE=true` for a read-only public dashboard — no authentication, all mutations blocked (403), internal stats redacted, mutation controls hidden in the UI. Telemetry and health endpoints remain open.
+
+## Security
+
+CSRF protection on cookie-authenticated mutations (Origin/Referer host matching). PoW nonce tracking prevents token replay. Response headers: CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff. Session security: PBKDF2-SHA256, 24h TTL, 30-min idle timeout, login rate limiting.
+
+## Anonymization
+
+Sites in `ECHELON_ANONYMIZE_SITES` get deterministic anonymization: HMAC-hashed visitor IDs (daily key rotation), fictional planet names for countries, themed aliases for devices/OS.
+
+## Testing
+
+214 server-side tests + 14 browser E2E tests. Covers bot scoring, PoW, sessions, rate limiting, buffered writes, DB, stats, middleware (auth, CSRF, CORS, CSP), endpoints, public mode, and maintenance. Tests run before every tagged release.
+
+## Public Dashboard
+
+A live public instance is available at [ea.islets.app](https://ea.islets.app/admin). It runs in `PUBLIC_MODE` — fully read-only, no authentication required. All displayed data is anonymized (HMAC-hashed visitor IDs, fictional countries). The dashboard demonstrates every admin feature: realtime visitors, bot detection, A/B experiments, UTM campaigns, and performance metrics.
+
+- Live dashboard: https://ea.islets.app/admin
+- LLM-friendly description: https://ea.islets.app/llms.txt
+- Sitemap: https://ea.islets.app/sitemap.xml
 
 ## Source
 

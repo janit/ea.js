@@ -1,14 +1,11 @@
 import { define } from "../../../utils.ts";
+import { PUBLIC_MODE } from "../../../lib/config.ts";
 import { getViewBufferSize } from "../../../lib/beacon.ts";
 import { getEventBufferSize } from "../../../lib/events-endpoint.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
     const db = ctx.state.db;
-
-    // Live buffer sizes
-    const viewBuffer = getViewBufferSize();
-    const eventBuffer = getEventBufferSize();
 
     // Recent visitor/bot counts (last 24h)
     const stats = await db.queryOne<{
@@ -27,7 +24,10 @@ export const handler = define.handlers({
     );
 
     return Response.json({
-      buffers: { views: viewBuffer, events: eventBuffer },
+      // Redact operational internals in public mode
+      buffers: PUBLIC_MODE
+        ? undefined
+        : { views: getViewBufferSize(), events: getEventBufferSize() },
       last_24h: {
         total_views: stats?.total_views ?? 0,
         human_views: stats?.human_views ?? 0,

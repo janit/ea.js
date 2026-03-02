@@ -17,6 +17,14 @@ import { scheduleDailyMaintenance } from "./lib/maintenance.ts";
 import { recordRequest } from "./lib/request-stats.ts";
 import { pruneSessions } from "./lib/session.ts";
 import { refreshUtmCampaigns } from "./lib/utm.ts";
+import { AUTH_USERNAME, SECRET, SHUTDOWN_TIMEOUT_MS } from "./lib/config.ts";
+
+// Warn if no authentication is configured
+if (!SECRET && !AUTH_USERNAME) {
+  console.warn(
+    "[echelon] WARNING: No authentication configured. Set ECHELON_SECRET or ECHELON_USERNAME + ECHELON_PASSWORD_HASH.",
+  );
+}
 
 // Initialize database
 const db = await initDb();
@@ -40,14 +48,25 @@ function gracefulShutdown(signal: string) {
   if (_shuttingDown) return;
   _shuttingDown = true;
   console.log(`[echelon] ${signal} received — flushing writers...`);
+
+  // Hard timeout: force exit to avoid hanging
+  const forceTimer = setTimeout(() => {
+    console.error(
+      `[echelon] Shutdown timed out after ${SHUTDOWN_TIMEOUT_MS}ms — forcing exit`,
+    );
+    Deno.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+
   Promise.all([
     flushRemainingViews(db),
     flushRemainingEvents(db),
   ]).then(async () => {
     await closeDb();
+    clearTimeout(forceTimer);
     Deno.exit(0);
   }).catch((e) => {
     console.error("[echelon] Error during shutdown:", e);
+    clearTimeout(forceTimer);
     Deno.exit(1);
   });
 }
@@ -59,13 +78,16 @@ export const app = new App<State>();
 
 app.use(staticFiles());
 
-// Request timing middleware
+// Security headers + request timing middleware
 app.use(async (ctx) => {
   const start = performance.now();
   const resp = await ctx.next();
   const durationMs = performance.now() - start;
   const url = new URL(ctx.req.url);
   recordRequest(url.pathname, durationMs, resp.status);
+  resp.headers.set("X-Frame-Options", "DENY");
+  resp.headers.set("X-Content-Type-Options", "nosniff");
+  resp.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   return resp;
 });
 

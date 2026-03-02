@@ -23,6 +23,7 @@ import {
   IGNORED_SITES,
   validateSiteId,
 } from "./config.ts";
+import { anonymizeEvent, shouldAnonymize } from "./anonymize.ts";
 import { tokenPenalty, verifyToken } from "./challenge.ts";
 import { BufferedWriter } from "./buffered-writer.ts";
 import { isUtmCampaignActive } from "./utm.ts";
@@ -57,37 +58,49 @@ const ALLOWED_EVENT_TYPES = new Set([
 
 import { getRequestCookie as getCookie } from "./cookie.ts";
 
+import type { SQLParam } from "./db/adapter.ts";
+
 // ── Buffered event writer ───────────────────────────────────────────────────
 
-const INSERT_SQL = `INSERT INTO semantic_events
-  (event_type, site_id, session_id, visitor_id, data,
+const EVENT_COLS = `(event_type, site_id, session_id, visitor_id, data,
    experiment_id, variant_id, utm_campaign,
    device_type, referrer, hour, month, day_of_week,
-   is_returning, bot_score)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+   is_returning, bot_score)`;
+const EVENT_COL_COUNT = 15;
+const CHUNK_SIZE = 50;
+const ONE_ROW = `(${Array(EVENT_COL_COUNT).fill("?").join(",")})`;
+
+function eventParams(ev: SemanticEvent): SQLParam[] {
+  return [
+    ev.event_type,
+    ev.site_id,
+    ev.session_id,
+    ev.visitor_id,
+    ev.data,
+    ev.experiment_id ?? null,
+    ev.variant_id ?? null,
+    ev.utm_campaign ?? null,
+    ev.device_type,
+    ev.referrer,
+    ev.hour,
+    ev.month,
+    ev.day_of_week,
+    ev.is_returning,
+    ev.bot_score,
+  ];
+}
 
 const eventWriter = new BufferedWriter<SemanticEvent>(
   async (db, batch) => {
     await db.transaction(async (tx) => {
-      for (const ev of batch) {
-        await tx.run(
-          INSERT_SQL,
-          ev.event_type,
-          ev.site_id,
-          ev.session_id,
-          ev.visitor_id,
-          ev.data,
-          ev.experiment_id ?? null,
-          ev.variant_id ?? null,
-          ev.utm_campaign ?? null,
-          ev.device_type,
-          ev.referrer,
-          ev.hour,
-          ev.month,
-          ev.day_of_week,
-          ev.is_returning,
-          ev.bot_score,
-        );
+      for (let i = 0; i < batch.length; i += CHUNK_SIZE) {
+        const chunk = batch.slice(i, i + CHUNK_SIZE);
+        const values = chunk.map(() => ONE_ROW).join(",");
+        const sql =
+          `INSERT INTO semantic_events ${EVENT_COLS} VALUES ${values}`;
+        const params: SQLParam[] = [];
+        for (const ev of chunk) params.push(...eventParams(ev));
+        await tx.run(sql, ...params);
       }
     });
   },
@@ -244,9 +257,9 @@ export async function handleEvents(
     const dataStr = JSON.stringify(data);
     if (dataStr.length > MAX_EVENT_DATA_BYTES) continue;
 
-    const sessionId = typeof ev.sessionId === "string"
-      ? ev.sessionId.slice(0, 64)
-      : null;
+    const SESSION_RE = /^[0-9a-f-]{36}$/;
+    const rawSid = typeof ev.sessionId === "string" ? ev.sessionId : null;
+    const sessionId = rawSid && SESSION_RE.test(rawSid) ? rawSid : null;
 
     // Extract experiment attribution from event data (if present)
     const experimentId = typeof data.experiment_id === "string"
@@ -265,7 +278,7 @@ export async function handleEvents(
         ? rawUtmCampaign
         : null;
 
-    eventWriter.push({
+    let eventRecord: SemanticEvent = {
       event_type: ev.type,
       site_id: siteId,
       session_id: sessionId,
@@ -281,7 +294,11 @@ export async function handleEvents(
       day_of_week: dayOfWeek,
       is_returning: isReturning ? 1 : 0,
       bot_score: botScore,
-    });
+    };
+    if (shouldAnonymize(siteId)) {
+      eventRecord = await anonymizeEvent(eventRecord);
+    }
+    eventWriter.push(eventRecord);
   }
 
   return new Response(null, { status: 204 });

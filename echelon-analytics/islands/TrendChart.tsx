@@ -14,7 +14,7 @@ export default function TrendChart({ data }: Props) {
   const hovered = useSignal<number | null>(null);
 
   if (!data.length) {
-    return <p class="text-[#1a5a1a] text-sm">No trend data.</p>;
+    return <p class="text-[var(--ea-muted)] text-sm">No trend data.</p>;
   }
 
   const maxVal = Math.max(...data.map((d) => d.visits), 1);
@@ -42,7 +42,7 @@ export default function TrendChart({ data }: Props) {
                 y={y}
                 width={barW}
                 height={barH}
-                fill={isHovered ? "#66ff66" : "#1a9a1a"}
+                fill={isHovered ? "var(--ea-primary-hover)" : "var(--ea-text)"}
                 rx={1}
               />
               {isHovered && (
@@ -51,7 +51,7 @@ export default function TrendChart({ data }: Props) {
                   y={y - 4}
                   text-anchor="middle"
                   font-size="10"
-                  fill="#33ff33"
+                  fill="var(--ea-primary)"
                   font-family="'Courier New', monospace"
                 >
                   {d.visits}
@@ -63,7 +63,7 @@ export default function TrendChart({ data }: Props) {
                   y={H + 16}
                   text-anchor="middle"
                   font-size="9"
-                  fill="#1a5a1a"
+                  fill="var(--ea-muted)"
                   font-family="'Courier New', monospace"
                 >
                   {d.date.slice(5)}
@@ -74,7 +74,7 @@ export default function TrendChart({ data }: Props) {
         })}
       </svg>
       {hovered.value !== null && (
-        <div class="text-xs text-[#1a9a1a] mt-1">
+        <div class="text-xs text-[var(--ea-text)] mt-1">
           {data[hovered.value].date}: {data[hovered.value].visits} views,{" "}
           {data[hovered.value].visitors} visitors
         </div>

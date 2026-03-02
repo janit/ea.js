@@ -1,36 +1,86 @@
 @import "tailwindcss";
 
+:root {
+  /* Norway-inspired palette — dark blue (#002868), white, red (#BA0C2F) */
+  --ea-bg: #eef0f5;
+  --ea-surface: #f8f9fb;
+  --ea-surface-alt: #e4e8ef;
+  --ea-border: #b0bac8;
+  --ea-muted: #5a6a7e;
+  --ea-text: #1e2d42;
+  --ea-primary: #002868;
+  --ea-primary-hover: #0a3d8f;
+  --ea-accent: #8b1a2b;
+  --ea-accent-hover: #a52238;
+  --ea-nav-bg: #001a42;
+  --ea-nav-text: #cdd6e4;
+  --ea-nav-muted: #7a8da4;
+  --ea-danger: #9b1b2a;
+  --ea-danger-border: #d9a0a8;
+  --ea-danger-bg: #faf0f1;
+  --ea-warn: #7a4a08;
+  --ea-warn-border: #d4b65c;
+  --ea-warn-bg: #faf5e8;
+  --ea-info: #0960a0;
+  --ea-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Tasavallan tietokone — Commodore 64 theme */
+[data-theme="c64"] {
+  --ea-bg: #40318d;
+  --ea-surface: #352879;
+  --ea-surface-alt: #2e2270;
+  --ea-border: #6c5eb5;
+  --ea-muted: #7b71d5;
+  --ea-text: #a49bdb;
+  --ea-primary: #ffffff;
+  --ea-primary-hover: #7b71d5;
+  --ea-accent: #9a6759;
+  --ea-accent-hover: #b87f6f;
+  --ea-nav-bg: #2a1f6b;
+  --ea-nav-text: #a49bdb;
+  --ea-nav-muted: #6c5eb5;
+  --ea-danger: #e04040;
+  --ea-danger-border: #9a6759;
+  --ea-danger-bg: #3a2269;
+  --ea-warn: #e0c040;
+  --ea-warn-border: #9a6759;
+  --ea-warn-bg: #3a2269;
+  --ea-info: #7b71d5;
+  --ea-font: "Fixedsys", "Courier New", Courier, monospace;
+}
+
 @layer base {
   body {
-    background: #0a0a0a;
-    color: #1a9a1a;
-    font-family: "Courier New", Courier, monospace;
+    background: var(--ea-bg);
+    color: var(--ea-text);
+    font-family: var(--ea-font);
   }
   a {
-    color: #33ff33;
+    color: var(--ea-primary);
     text-decoration: none;
   }
   a:hover {
-    color: #66ff66;
+    color: var(--ea-primary-hover);
   }
 }
 
 /* KPI card styles */
 .kpi-card {
-  background: #111;
-  border: 1px solid #1a3a1a;
+  background: var(--ea-surface);
+  border: 1px solid var(--ea-border);
   padding: 1rem;
   text-align: center;
 }
 .kpi-value {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #33ff33;
+  color: var(--ea-primary);
   font-variant-numeric: tabular-nums;
 }
 .kpi-label {
   font-size: 0.75rem;
-  color: #1a5a1a;
+  color: var(--ea-muted);
   margin-top: 0.25rem;
 }
 
@@ -44,19 +94,19 @@
   border: 1px solid;
 }
 .bot-score-high {
-  color: #ff3333;
-  border-color: #661111;
-  background: #1a0a0a;
+  color: var(--ea-danger);
+  border-color: var(--ea-danger-border);
+  background: var(--ea-danger-bg);
 }
 .bot-score-med {
-  color: #ffaa00;
-  border-color: #664400;
-  background: #1a1400;
+  color: var(--ea-warn);
+  border-color: var(--ea-warn-border);
+  background: var(--ea-warn-bg);
 }
 .bot-score-low {
-  color: #33ff33;
-  border-color: #1a3a1a;
-  background: #0d1a0d;
+  color: var(--ea-primary);
+  border-color: var(--ea-border);
+  background: var(--ea-surface-alt);
 }
 
 /* Excluded row */
@@ -64,42 +114,43 @@
   opacity: 0.4;
 }
 
-/* Visitor ID monospace */
+/* Visitor ID — always distinct monospace with accent underline */
 .visitor-id {
   font-family: "Courier New", Courier, monospace;
   font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--ea-accent);
+  padding-bottom: 1px;
 }
 
 /* Experiment status */
 .status-draft {
-  color: #1a5a1a;
+  color: var(--ea-muted);
 }
 .status-active {
-  color: #33ff33;
+  color: var(--ea-primary);
   font-weight: 500;
 }
 .status-paused {
-  color: #ffaa00;
+  color: var(--ea-warn);
 }
 .status-completed {
-  color: #00ccff;
+  color: var(--ea-info);
 }
 .status-archived {
-  color: #1a3a1a;
+  color: var(--ea-border);
 }
 
-/* Blinking cursor */
-.cursor {
-  display: inline-block;
-  width: 0.6em;
-  height: 1.1em;
-  background: #33ff33;
-  vertical-align: text-bottom;
-  animation: blink 1s step-end infinite;
+/* Mobile hamburger menu */
+#nav-toggle:checked ~ .nav-bar .nav-open {
+  display: none;
 }
-@keyframes blink {
-  50% {
-    opacity: 0;
+#nav-toggle:checked ~ .nav-bar .nav-close {
+  display: inline;
+}
+@media (width < 48rem) {
+  #nav-toggle:checked ~ .nav-menu {
+    display: block;
   }
 }
 
@@ -109,11 +160,11 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: var(--ea-bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1a3a1a;
+  background: var(--ea-border);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #1a5a1a;
+  background: var(--ea-muted);
 }

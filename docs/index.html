@@ -3,132 +3,182 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ea.js — Privacy-First Web Analytics with WASM Bot Defense</title>
+<title>Echelon Analytics — Privacy-First Web Analytics with WASM Bot Defense</title>
 <meta name="description" content="Self-hosted, cookieless web analytics with WebAssembly proof-of-work bot defense. Single script tag, single SQLite database. No cookie banners needed. AGPL-3.0.">
 <link rel="canonical" href="https://ea.js.org/">
 <link rel="icon" href="favicon.ico">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="ea.js — Echelon Analytics">
-<meta property="og:title" content="ea.js — Privacy-First Web Analytics with WASM Bot Defense">
+<meta property="og:site_name" content="Echelon Analytics">
+<meta property="og:title" content="Echelon Analytics — Privacy-First Web Analytics with WASM Bot Defense">
 <meta property="og:description" content="Self-hosted, cookieless web analytics with WebAssembly proof-of-work bot defense. Single script tag, single SQLite database. No cookie banners needed.">
 <meta property="og:url" content="https://ea.js.org/">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="ea.js — Privacy-First Web Analytics with WASM Bot Defense">
+<meta name="twitter:title" content="Echelon Analytics — Privacy-First Web Analytics with WASM Bot Defense">
 <meta name="twitter:description" content="Self-hosted, cookieless web analytics with WebAssembly proof-of-work bot defense. Single script tag, single SQLite database.">
 <link rel="stylesheet" href="css/style.css">
 <script async src="https://ea.islets.app/ea.js" data-site="echelon-analytics" data-cookie></script>
 </head>
 <body>
+
+<header class="site-header" style="visibility:hidden">
+  <div class="site-header-inner">
+    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
+    <a href="installation.html">Installation</a>
+    <a href="features.html">Features</a>
+    <a href="api.html">API</a>
+    <a href="bot-defense.html">Bot Defense</a>
+    <a href="configuration.html">Config</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="portable-data.html">Portable Data</a>
+    <a href="mcp.html">MCP</a>
+    <a href="telemetry.html">Telemetry</a>
+    <a href="why-ea.html">Why ea.js?</a>
+  </div>
+</header>
+
 <main>
-<h1>&gt; ea.js <span>— Echelon Analytics</span></h1>
-<p class="tagline">Privacy-first, self-hosted web analytics with WebAssembly proof-of-work bot defense.<br>
-Drop in a single script tag — clean data, no cookie banners, no bot spam.<span class="cursor"></span></p>
 
-<hr>
-
-<h2>Documentation</h2>
-<div class="doc-nav">
-<a href="installation.html">Installation</a>
-<a href="features.html">Features</a>
-<a href="api.html">API Reference</a>
-<a href="bot-defense.html">Bot Defense</a>
-<a href="configuration.html">Configuration</a>
-<a href="architecture.html">Architecture</a>
+<div class="hero">
+  <img src="img/mmm.webp" alt="Mette-Maya-Marit — the Echelon Analytics seal of approval" width="200" height="200">
+  <h1>Echelon Analytics <span>🩺</span></h1>
+  <p class="tagline">Privacy-first, self-hosted web analytics with <strong>WebAssembly proof-of-work bot defense</strong>. Drop in a single script tag — clean data, no cookie banners, no bot spam.</p>
+  <p class="quote">"Data er den nye oljen!"</p>
+  <p>
+    <a href="installation.html" class="cta">Get Started</a>
+    <a href="https://github.com/janit/ea" class="cta secondary">GitHub</a>
+  </p>
 </div>
 
 <hr>
 
-<h2>Why?</h2>
-<p>Google Analytics used to be my go-to. Then GA4 happened — bloated, confusing, way too heavy, and full of bot spam that distorts your statistics.
-Using it feels like opening Microsoft Word when all you want is a text editor.
-So I built my own for <a href="https://afroute.com">afroute.com</a> and ripped it out when
-implementing <a href="https://islets.app">Islets Spatial CMS</a>.</p>
+<h2>Why Echelon?</h2>
+<p>Google Analytics used to be the go-to. Then GA4 happened — bloated, confusing, way too heavy, and full of bot spam that distorts your statistics. Using it feels like opening Microsoft Word when all you want is a text editor. So I built my own for <a href="https://afroute.com">afroute.com</a> and ripped it out when implementing <a href="https://islets.app">Islets Spatial CMS</a>. One thing led to another and now you're reading the Echelon Analytics site.</p>
+<p>Echelon was built as a lightweight alternative for developers who want <strong>clean, accurate analytics</strong> without the overhead. One script tag, one SQLite file, zero external dependencies.</p>
+<p><a href="why-ea.html" class="cta">Why ea.js? &rarr;</a></p>
+
+<div class="card">
+  <h3>WASM Bot Defense — Clean Data Without CAPTCHAs</h3>
+  <p>Every tracker script embeds a <strong>runtime-generated WebAssembly module</strong> that browsers must solve before pageviews are accepted. The WASM blob regenerates from a random seed every 6 hours — each deployment produces unique bytecode that bot toolkits can't pre-compute. Combined with heuristic scoring (0&ndash;100), Cloudflare integration, burst detection, and UA blocklists, the result is <strong>clean analytics data</strong> without CAPTCHAs or third-party bot detection services. <a href="bot-defense.html">Learn more &rarr;</a></p>
+</div>
+
+<div class="card">
+  <h3>Portable Data — Your Analytics, Your Database</h3>
+  <p>All data lives in a <strong>single SQLite file</strong>. Copy it to your laptop. Query it with DuckDB, Datasette, or any SQLite tool. Back it up with <code>cp</code>. No vendor lock-in, no proprietary formats, no data export requests. Raw visitor data is kept for 90 days alongside daily rollups for 2 years — you can re-analyze with different bot score thresholds at any time. <a href="portable-data.html">Learn more &rarr;</a></p>
+</div>
+
+<div class="card">
+  <h3>MCP Server — AI Agents Query Your Analytics</h3>
+  <p>A read-only <strong>Model Context Protocol server</strong> lets Claude Code, Claude Desktop, and other AI agents query your analytics directly. 9 read-only tools for overview, realtime, campaigns, experiments, and dashboard data. No raw SQL, no PII exposure. Ask your AI "how's my site doing?" and it fetches real data. <a href="mcp.html">Learn more &rarr;</a></p>
+</div>
+
+<div class="features">
+  <div class="feature">
+    <h3>Cookieless by Default</h3>
+    <p>Daily-rotating HMAC hashes identify visitors without cookies. No cross-day tracking, no consent banners needed. GDPR/ePrivacy compliant out of the box.</p>
+  </div>
+  <div class="feature">
+    <h3>Live Admin Dashboard</h3>
+    <p>Real-time visitor monitoring, bot management, A/B experiments, UTM campaigns, performance metrics — all with a live stats bar and theming support.</p>
+  </div>
+</div>
+
+<hr>
+
+<p class="seal-tip">🏷️ "Did you know you can track Core Web Vitals, form submissions, scroll depth, outbound links, and file downloads — all with single script tag attributes? No code changes needed." -<span class="seal">🦭</span></p>
 
 <h2>Quick Start</h2>
-<pre>cd echelon-analytics
+<pre>git clone https://github.com/janit/ea.git
+cd ea/echelon-analytics
 deno task dev</pre>
+<p>Add to any site:</p>
 <pre>&lt;script src="https://your-host/ea.js" data-site="my-site"&gt;&lt;/script&gt;</pre>
-<p>That's it. Pageviews, bounces, and sessions tracked automatically.</p>
+<p>That's it. Pageviews, bounces, and sessions are tracked automatically.</p>
 
-<h2>WASM Proof-of-Work Bot Defense</h2>
-<p>Analytics tools are plagued by bot traffic that distorts your data. ea.js solves this with a novel approach: every tracker script embeds a <strong>runtime-generated WebAssembly module</strong> that browsers must solve before pageviews are accepted.</p>
-<ul>
-<li>WASM blob is regenerated from a random seed every <strong>6 hours</strong> — each deployment produces unique bytecode</li>
-<li>SipHash-inspired algorithm with randomized constants — bot toolkits can't pre-compute solutions</li>
-<li>Per-minute challenge rotation via HMAC-SHA256</li>
-<li>Invisible to users — solves in &lt;150ms in any modern browser</li>
-<li>Missing or invalid tokens add penalty points to the visitor's bot score (0–100)</li>
-<li>Combined with heuristic scoring, Cloudflare integration, burst detection, and UA blocklists</li>
-</ul>
-<p>The result: <strong>clean analytics data</strong> without CAPTCHAs, JavaScript challenges, or third-party bot detection services. <a href="bot-defense.html">Full bot defense documentation &rarr;</a></p>
+<hr>
 
-<h2>How It Works</h2>
-<ul>
-<li>1x1 pixel beacon + <code>sendBeacon</code> for events</li>
-<li>Cookieless by default — daily-rotating HMAC hash, no cross-day tracking</li>
-<li>No cookie consent banners needed (GDPR/ePrivacy compliant)</li>
-<li>Optional persistent cookies via <code>data-cookie</code></li>
-<li>SPA-aware — patches <code>pushState</code>/<code>replaceState</code> for automatic route tracking</li>
-<li>SQLite with WAL mode — single file, zero config</li>
-</ul>
+<h2>What You Get</h2>
 
-<h2>Tracking Features</h2>
-<ul>
-<li>Auto-tracked pageviews, bounces, sessions</li>
-<li>Click, scroll depth, hover, outbound link, and file download tracking</li>
-<li>Core Web Vitals (LCP, CLS, INP) via <code>data-vitals</code></li>
-<li>Form submission tracking via <code>data-forms</code></li>
-<li>Custom events: <code>window.echelon.track("name", { key: "value" })</code></li>
-<li>UTM campaign tracking with source/medium/content/term breakdown</li>
-<li>A/B experiment tracking with variant allocation and significance testing</li>
-</ul>
+<div class="card">
+  <h3>Tracking</h3>
+  <ul>
+    <li>Auto-tracked pageviews, bounces, sessions</li>
+    <li>Click, scroll depth, hover, outbound link, and file download tracking</li>
+    <li>Core Web Vitals (LCP, CLS, INP) via <code>data-vitals</code></li>
+    <li>Form submission tracking via <code>data-forms</code></li>
+    <li>Custom events: <code>window.echelon.track("name", { key: "value" })</code></li>
+    <li>UTM campaign tracking with source/medium/content/term breakdown</li>
+    <li>A/B experiment tracking with variant allocation and significance testing</li>
+    <li>SPA-aware — automatic route change detection for React, Vue, Svelte, etc.</li>
+  </ul>
+</div>
 
-<h2>Bot Defense</h2>
-<ul>
-<li>Heuristic scoring (0–100) — interaction timing, headers, geo, burst detection</li>
-<li>Dynamic WASM proof-of-work — randomized every 6 hours, embedded in tracker</li>
-<li>Cloudflare bot score integration when deployed behind CF</li>
-<li>Known bot UA blocklist (Googlebot, GPTBot, ClaudeBot, curl, etc.)</li>
-<li>AI referrer classification (ChatGPT, Claude, Perplexity, Gemini)</li>
-<li>Per-IP rate limiting on tracking endpoints</li>
-</ul>
+<div class="card">
+  <h3>Bot Defense</h3>
+  <ul>
+    <li>Dynamic WASM proof-of-work — randomized every 6 hours, embedded in tracker</li>
+    <li>Heuristic scoring (0&ndash;100) — interaction timing, headers, geo, burst detection</li>
+    <li>Cloudflare bot score integration when deployed behind CF</li>
+    <li>Known bot UA blocklist (Googlebot, GPTBot, ClaudeBot, curl, etc.)</li>
+    <li>AI referrer classification (ChatGPT, Claude, Perplexity, Gemini)</li>
+    <li>Per-IP rate limiting on tracking endpoints</li>
+  </ul>
+</div>
 
-<h2>Admin Dashboard</h2>
-<ul>
-<li>Overview with KPIs, daily trends, top pages, devices, countries, referrers</li>
-<li>Realtime visitor monitoring (10-second polling)</li>
-<li>Bot management — suspicious visitors, exclude/include controls</li>
-<li>A/B experiments — create, manage, view conversion uplift</li>
-<li>UTM campaigns — track and break down by source, medium, content</li>
-<li>Performance metrics — CI/CD benchmark tracking with trends</li>
-<li>REST API for all dashboard data</li>
-</ul>
+<div class="card">
+  <h3>Admin Dashboard</h3>
+  <ul>
+    <li>Live dashboard with Now gauge, 60-minute and 24-hour trend charts</li>
+    <li>Recent visitors and events tables with real-time updates</li>
+    <li>Overview with KPIs, daily trends, top pages, devices, countries, referrers</li>
+    <li>Visitor views listing — filterable, sortable, paginated</li>
+    <li>Semantic events listing with type badges and filtering</li>
+    <li>Bot management with suspicious visitor detection and exclude/include controls</li>
+    <li>A/B experiments — create, manage, view conversion uplift</li>
+    <li>UTM campaigns — track and break down by source, medium, content</li>
+    <li>Performance metrics — CI/CD benchmark tracking with trends</li>
+    <li>Government-inspired design with navy and burgundy palette — built for visual integrity</li>
+    <li>Configurable timezone display for admin timestamps</li>
+  </ul>
+</div>
 
-<h2>Auth</h2>
-<ul>
-<li>Bearer token (<code>ECHELON_SECRET</code>) for API access</li>
-<li>Username + password login (PBKDF2-SHA256, 600k iterations)</li>
-<li>24-hour session cookies with CSRF protection</li>
-</ul>
+<hr>
 
 <h2>Tech Stack</h2>
 <ul>
-<li>Deno + Fresh 2.2.0 (Preact islands)</li>
-<li>SQLite via Deno's built-in <code>node:sqlite</code></li>
-<li>Preact + <code>@preact/signals</code>, Tailwind CSS v4</li>
-<li>Vite 7 build pipeline</li>
-<li>Docker-ready (multi-stage, non-root, health check)</li>
+  <li><strong>Runtime:</strong> Deno + Fresh 2.2.0 (Preact islands)</li>
+  <li><strong>Database:</strong> SQLite via Deno's built-in <code>node:sqlite</code> (WAL mode)</li>
+  <li><strong>Frontend:</strong> Preact + <code>@preact/signals</code>, Tailwind CSS v4</li>
+  <li><strong>Build:</strong> Vite 7</li>
+  <li><strong>Deploy:</strong> Docker-ready (multi-stage, non-root, health check)</li>
 </ul>
 
-<h2>Docker</h2>
 <pre>docker build -f confs/Dockerfile -t echelon .
 docker run -p 1947:1947 -v echelon-data:/app/data echelon</pre>
 
 <hr>
 
-<p><a href="https://github.com/janit/ea">github.com/janit/ea</a></p>
+<h2>Documentation</h2>
+<div class="doc-nav">
+  <a href="installation.html">Installation</a>
+  <a href="features.html">Features</a>
+  <a href="api.html">API Reference</a>
+  <a href="bot-defense.html">Bot Defense</a>
+  <a href="configuration.html">Configuration</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="portable-data.html">Portable Data</a>
+  <a href="mcp.html">MCP Server</a>
+  <a href="telemetry.html">Telemetry</a>
+  <a href="why-ea.html">Why ea.js?</a>
+</div>
 
-<p class="footer">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen</p>
 </main>
+
+<footer class="footer">
+  <div class="quote">🛢️ "Data er den nye oljen!" -🦭</div>
+  <div class="links">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen — <a href="https://github.com/janit/ea">GitHub</a></div>
+</footer>
+
+<script>(function(){var h=document.querySelector(".site-header");if(!h)return;var inner=h.querySelector(".site-header-inner");function check(){h.removeAttribute("data-collapsed");h.classList.remove("nav-open");if(inner.scrollWidth>inner.clientWidth+2)h.setAttribute("data-collapsed","");}window.addEventListener("resize",check);check();h.style.visibility="";})()</script>
 </body>
 </html>

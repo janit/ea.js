@@ -130,21 +130,52 @@ function solveWith(
     .join("");
 }
 
+// ── Nonce tracking (prevent token replay) ───────────────────────────────────
+
+const usedTokens = new Map<string, number>(); // token → expiry timestamp
+const NONCE_TTL_MS = (CHALLENGE_WINDOW_MINUTES + 1) * 60_000;
+const MAX_USED_TOKENS = 100_000;
+let lastEviction = Date.now();
+
+function evictExpiredTokens(force = false): void {
+  const now = Date.now();
+  if (!force && now - lastEviction < 60_000) return; // evict at most once/min
+  lastEviction = now;
+  for (const [tok, expiry] of usedTokens) {
+    if (expiry <= now) usedTokens.delete(tok);
+  }
+  // Hard cap: if still too large after expiry eviction, drop oldest entries
+  if (usedTokens.size > MAX_USED_TOKENS) {
+    const toRemove = usedTokens.size - Math.floor(MAX_USED_TOKENS * 0.75);
+    let removed = 0;
+    for (const key of usedTokens.keys()) {
+      if (removed >= toRemove) break;
+      usedTokens.delete(key);
+      removed++;
+    }
+  }
+}
+
 // ── Token verification ──────────────────────────────────────────────────────
 
 /**
- * Verify a PoW token. Returns "valid", "missing", or "invalid".
+ * Verify a PoW token. Returns "valid", "missing", "invalid", or "replayed".
  *
  * Tries the current + previous WASM instances against
  * the last CHALLENGE_WINDOW_MINUTES minute buckets.
+ * Each valid token can only be used once (nonce tracking).
  */
 export async function verifyToken(
   tok: string | null,
   siteId: string,
   sid: string,
-): Promise<"valid" | "missing" | "invalid"> {
+): Promise<"valid" | "missing" | "invalid" | "replayed"> {
   if (!tok) return "missing";
   if (!/^[0-9a-f]{32}$/.test(tok)) return "invalid";
+
+  // Check for replay before doing expensive WASM verification
+  evictExpiredTokens(usedTokens.size > MAX_USED_TOKENS * 0.9);
+  if (usedTokens.has(tok)) return "replayed";
 
   const slot = await ensureCurrentSlot();
   const key = await getHmacKey();
@@ -165,7 +196,11 @@ export async function verifyToken(
 
     for (const s of slots) {
       const expected = solveWith(s.instance, input);
-      if (constantTimeEquals(expected, tok)) return "valid";
+      if (constantTimeEquals(expected, tok)) {
+        // Mark token as used
+        usedTokens.set(tok, Date.now() + NONCE_TTL_MS);
+        return "valid";
+      }
     }
   }
 
@@ -173,8 +208,10 @@ export async function verifyToken(
 }
 
 /** Bot score penalty for token verification result. */
-export function tokenPenalty(result: "valid" | "missing" | "invalid"): number {
+export function tokenPenalty(
+  result: "valid" | "missing" | "invalid" | "replayed",
+): number {
   if (result === "valid") return 0;
-  if (result === "missing") return 15;
-  return 25; // invalid
+  if (result === "missing") return 30;
+  return 40; // invalid or replayed
 }

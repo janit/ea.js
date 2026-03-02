@@ -24,6 +24,7 @@ import {
   validateSiteId,
   VIEW_FLUSH_MS,
 } from "./config.ts";
+import { anonymizeView, shouldAnonymize } from "./anonymize.ts";
 import { tokenPenalty, verifyToken } from "./challenge.ts";
 import { BufferedWriter } from "./buffered-writer.ts";
 import { isUtmCampaignActive, refreshUtmCampaigns } from "./utm.ts";
@@ -89,40 +90,51 @@ import { getRequestCookie as getCookie } from "./cookie.ts";
 
 // ── Buffered writer ─────────────────────────────────────────────────────────
 
-const INSERT_SQL = `INSERT INTO visitor_views
-  (visitor_id, path, site_id, session_id, interaction_ms,
+import type { SQLParam } from "./db/adapter.ts";
+
+const VIEW_COLS = `(visitor_id, path, site_id, session_id, interaction_ms,
    screen_width, screen_height, device_type, os_name, country_code,
    is_returning, referrer, referrer_type, bot_score, is_pwa,
-   utm_source, utm_medium, utm_campaign, utm_content, utm_term)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+   utm_source, utm_medium, utm_campaign, utm_content, utm_term)`;
+const VIEW_COL_COUNT = 20;
+const CHUNK_SIZE = 50;
+const ONE_ROW = `(${Array(VIEW_COL_COUNT).fill("?").join(",")})`;
+
+function viewParams(v: ViewRecord): SQLParam[] {
+  return [
+    v.visitor_id,
+    v.path,
+    v.site_id,
+    v.session_id,
+    v.interaction_ms,
+    v.screen_width,
+    v.screen_height,
+    v.device_type,
+    v.os_name,
+    v.country_code,
+    v.is_returning,
+    v.referrer,
+    v.referrer_type,
+    v.bot_score,
+    v.is_pwa,
+    v.utm_source ?? null,
+    v.utm_medium ?? null,
+    v.utm_campaign ?? null,
+    v.utm_content ?? null,
+    v.utm_term ?? null,
+  ];
+}
 
 const viewWriter = new BufferedWriter<ViewRecord>(
   async (db, batch) => {
     await db.transaction(async (tx) => {
-      for (const v of batch) {
-        await tx.run(
-          INSERT_SQL,
-          v.visitor_id,
-          v.path,
-          v.site_id,
-          v.session_id,
-          v.interaction_ms,
-          v.screen_width,
-          v.screen_height,
-          v.device_type,
-          v.os_name,
-          v.country_code,
-          v.is_returning,
-          v.referrer,
-          v.referrer_type,
-          v.bot_score,
-          v.is_pwa,
-          v.utm_source ?? null,
-          v.utm_medium ?? null,
-          v.utm_campaign ?? null,
-          v.utm_content ?? null,
-          v.utm_term ?? null,
-        );
+      for (let i = 0; i < batch.length; i += CHUNK_SIZE) {
+        const chunk = batch.slice(i, i + CHUNK_SIZE);
+        const values = chunk.map(() => ONE_ROW).join(",");
+        const sql = `INSERT INTO visitor_views ${VIEW_COLS} VALUES ${values}`;
+        const params: SQLParam[] = [];
+        for (const v of chunk) params.push(...viewParams(v));
+        await tx.run(sql, ...params);
       }
     });
   },
@@ -131,7 +143,8 @@ const viewWriter = new BufferedWriter<ViewRecord>(
   "View",
 );
 
-// ── Excluded visitors cache (refreshed every 60s) ───────────────────────────
+// ── Excluded visitors cache (refreshed every 60s, capped at 100K) ───────────
+const MAX_EXCLUDED_CACHE = 100_000;
 const excludedSet = new Set<string>();
 let excludedRefreshedAt = 0;
 
@@ -139,7 +152,7 @@ async function refreshExcluded(db: DbAdapter): Promise<void> {
   if (Date.now() - excludedRefreshedAt < 60_000) return;
   excludedSet.clear();
   const rows = await db.query<{ visitor_id: string }>(
-    "SELECT visitor_id FROM excluded_visitors",
+    `SELECT visitor_id FROM excluded_visitors LIMIT ${MAX_EXCLUDED_CACHE}`,
   );
   for (const r of rows) excludedSet.add(r.visitor_id);
   excludedRefreshedAt = Date.now();
@@ -330,7 +343,7 @@ export async function handleBeacon(
       botScore >= BOT_DISCARD_THRESHOLD;
 
     if (!discard) {
-      viewWriter.push({
+      let view: ViewRecord = {
         visitor_id: visitorId,
         path,
         site_id: siteId,
@@ -351,7 +364,11 @@ export async function handleBeacon(
         utm_campaign: utmCampaign,
         utm_content: utmContent,
         utm_term: utmTerm,
-      });
+      };
+      if (shouldAnonymize(siteId)) {
+        view = await anonymizeView(view);
+      }
+      viewWriter.push(view);
     }
   }
 

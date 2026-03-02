@@ -3,6 +3,7 @@ import { define } from "../../../utils.ts";
 import { AdminNav } from "../../../components/AdminNav.tsx";
 import { getLiveStats } from "../../../lib/admin-stats.ts";
 import BotActions from "../../../islands/BotActions.tsx";
+import { formatTime } from "../../../lib/format.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -24,27 +25,35 @@ export default define.page<typeof handler>(function ExcludedPage({ state }) {
   const { rows, liveStats } = state.pageData;
 
   return (
-    <AdminNav title="Excluded Visitors" liveStats={liveStats}>
-      <div class="bg-[#111] border border-[#1a3a1a] overflow-hidden">
+    <AdminNav
+      title="Excluded Visitors"
+      liveStats={liveStats}
+      siteId={state.siteId}
+      knownSites={state.knownSites}
+      days={state.days}
+      url={state.url}
+      telemetryState={state.telemetryState}
+    >
+      <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-[#1a3a1a]">
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+            <tr class="border-b border-[var(--ea-border)]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Visitor ID
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Label
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Max Score
               </th>
-              <th class="text-right px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Views
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Excluded At
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Actions
               </th>
             </tr>
@@ -53,29 +62,29 @@ export default define.page<typeof handler>(function ExcludedPage({ state }) {
             {rows.map((r) => (
               <tr
                 key={r.visitor_id as string}
-                class="border-b border-[#0d1a0d]"
+                class="border-b border-[var(--ea-surface-alt)]"
               >
                 <td class="px-4 py-1.5">
                   <a
                     href={`/admin/bots/${
                       encodeURIComponent(r.visitor_id as string)
                     }`}
-                    class="visitor-id text-[#33ff33] hover:text-[#66ff66]"
+                    class="visitor-id text-[var(--ea-primary)] hover:text-[var(--ea-primary-hover)]"
                   >
                     {(r.visitor_id as string).slice(0, 12)}...
                   </a>
                 </td>
-                <td class="px-4 py-1.5 text-[#1a9a1a]">
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {(r.label as string) ?? "-"}
                 </td>
-                <td class="px-4 py-1.5 text-[#1a9a1a]">
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {(r.max_bot_score as number) ?? "-"}
                 </td>
-                <td class="px-4 py-1.5 text-right tabular-nums text-[#33ff33]">
+                <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-primary)]">
                   {r.pageviews as number}
                 </td>
-                <td class="px-4 py-1.5 text-[#1a5a1a]">
-                  {(r.created_at as string).slice(0, 16)}
+                <td class="px-4 py-1.5 text-[var(--ea-muted)]">
+                  {formatTime(r.created_at as string)}
                 </td>
                 <td class="px-4 py-1.5">
                   <BotActions
@@ -89,7 +98,7 @@ export default define.page<typeof handler>(function ExcludedPage({ state }) {
         </table>
       </div>
       {rows.length === 0 && (
-        <p class="text-[#1a5a1a] text-sm mt-4">No excluded visitors.</p>
+        <p class="text-[var(--ea-muted)] text-sm mt-4">No excluded visitors.</p>
       )}
     </AdminNav>
   );

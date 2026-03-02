@@ -3,25 +3,43 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>API Reference — ea.js Echelon Analytics</title>
-<meta name="description" content="REST API reference for Echelon Analytics: stats, realtime monitoring, bot management, UTM campaigns, A/B experiments, performance metrics, and data ingest.">
+<title>API Reference — Echelon Analytics</title>
+<meta name="description" content="REST API reference for Echelon Analytics: stats, live dashboard, realtime monitoring, bot management, UTM campaigns, A/B experiments, performance metrics, and data ingest.">
 <link rel="canonical" href="https://ea.js.org/api.html">
 <link rel="icon" href="favicon.ico">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="ea.js — Echelon Analytics">
-<meta property="og:title" content="API Reference — ea.js Echelon Analytics">
-<meta property="og:description" content="REST API reference: stats, realtime monitoring, bot management, UTM campaigns, A/B experiments, and performance metrics.">
+<meta property="og:site_name" content="Echelon Analytics">
+<meta property="og:title" content="API Reference — Echelon Analytics">
+<meta property="og:description" content="REST API reference: stats, live dashboard, realtime monitoring, bot management, UTM campaigns, A/B experiments, and performance metrics.">
 <meta property="og:url" content="https://ea.js.org/api.html">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="API Reference — ea.js Echelon Analytics">
-<meta name="twitter:description" content="REST API reference: stats, realtime monitoring, bot management, UTM campaigns, A/B experiments, and performance metrics.">
+<meta name="twitter:title" content="API Reference — Echelon Analytics">
+<meta name="twitter:description" content="REST API reference: stats, live dashboard, realtime monitoring, bot management, UTM campaigns, A/B experiments, and performance metrics.">
 <link rel="stylesheet" href="css/style.css">
 <script async src="https://ea.islets.app/ea.js" data-site="echelon-analytics" data-cookie></script>
 </head>
 <body>
-<nav><a href="index.html">ea.js</a> <span class="sep">/</span> <a href="api.html">api</a></nav>
+
+<header class="site-header" style="visibility:hidden">
+  <div class="site-header-inner">
+    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
+    <a href="installation.html">Installation</a>
+    <a href="features.html">Features</a>
+    <a href="api.html">API</a>
+    <a href="bot-defense.html">Bot Defense</a>
+    <a href="configuration.html">Config</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="portable-data.html">Portable Data</a>
+    <a href="mcp.html">MCP</a>
+    <a href="telemetry.html">Telemetry</a>
+    <a href="why-ea.html">Why ea.js?</a>
+  </div>
+</header>
+
+<nav><a href="index.html">Echelon 🩺</a> <span class="sep">/</span> API Reference</nav>
 <main>
-<h1>&gt; API Reference</h1>
+<h1>API Reference</h1>
 <p class="tagline">REST API for stats, bot management, campaigns, experiments, and performance metrics.</p>
 
 <hr>
@@ -29,8 +47,8 @@
 <h2>Authentication</h2>
 <p>All API endpoints (except <code>/api/health</code>) require one of:</p>
 <ul>
-<li><strong>Bearer token</strong>: <code>Authorization: Bearer &lt;ECHELON_SECRET&gt;</code></li>
-<li><strong>Session cookie</strong>: <code>echelon_session</code> from password login</li>
+  <li><strong>Bearer token</strong>: <code>Authorization: Bearer &lt;ECHELON_SECRET&gt;</code></li>
+  <li><strong>Session cookie</strong>: <code>echelon_session</code> from password login</li>
 </ul>
 <p>Cookie-authenticated POST/PATCH/DELETE requests require CSRF validation (Origin or Referer header must match the server host).</p>
 
@@ -53,10 +71,15 @@
 
 <hr>
 
+<p class="seal-tip">📦 "Did you know you can bulk ingest historical data via POST /api/ingest? Perfect for migrating from another analytics platform or backfilling data." -<span class="seal">🦭</span></p>
+
 <h2>Stats</h2>
 
 <div class="endpoint"><span class="method">GET</span> <span class="path">/api/stats/overview?site_id=X&amp;days=N</span></div>
 <p>Overview statistics for a site. Visitors, pageviews, top pages, devices, countries, referrers, daily trends. <code>days</code> defaults to 30 (max 730).</p>
+
+<div class="endpoint"><span class="method">GET</span> <span class="path">/api/stats/dashboard?site_id=X</span></div>
+<p>Live dashboard data: active visitors (now), 60-minute trend (per-minute), 24-hour trend (per-hour), recent visitors and recent events. Powers the live dashboard island.</p>
 
 <div class="endpoint"><span class="method">GET</span> <span class="path">/api/stats/realtime?site_id=X</span></div>
 <p>Realtime stats: active visitors, pageviews, and active paths from the last 5 minutes.</p>
@@ -79,12 +102,16 @@
 <div class="endpoint"><span class="method">GET</span> <span class="path">/api/stats/campaigns?days=N</span></div>
 <p>Campaign statistics. Optional <code>id</code> param for detailed breakdown by source, medium, content, and term. <code>days</code> defaults to 30 (max 90).</p>
 
+<div class="endpoint"><span class="method">GET</span> <span class="path">/api/stats/campaign-events?site_id=X&amp;days=N&amp;event_type=Y</span></div>
+<p>Campaign-to-event correlation. For each campaign (plus organic traffic as baseline): visitors, event-triggering visitors, event count, event rate, events per visitor, and per-campaign event type breakdown. Use to measure whether campaign visitors adopt features or convert. <code>event_type</code> is optional — when set, only counts that specific event.</p>
+
 <div class="endpoint"><span class="method">GET</span> <span class="path">/api/stats/experiments?experiment_id=X</span></div>
 <p>Experiment statistics with variant conversion rates and significance testing.</p>
 
 <hr>
 
 <h2>Campaigns</h2>
+<p>See <a href="features.html#utm">UTM Campaign Tracking</a> for a complete guide on setting up campaigns, URL format, and how attribution works.</p>
 
 <div class="endpoint"><span class="method">GET</span> <span class="path">/api/campaigns</span></div>
 <p>List all UTM campaigns.</p>
@@ -121,6 +148,7 @@
 <hr>
 
 <h2>Experiments</h2>
+<p>See <a href="features.html#experiments">A/B Experiments</a> for a complete guide on creating experiments, tracking conversions, and understanding statistical significance.</p>
 
 <div class="endpoint"><span class="method">GET</span> <span class="path">/api/experiments</span></div>
 <p>List all A/B experiments with variants.</p>
@@ -216,13 +244,23 @@
 
 <hr>
 <div class="doc-nav">
-<a href="installation.html">Installation</a>
-<a href="features.html">Features</a>
-<a href="bot-defense.html">Bot Defense</a>
-<a href="configuration.html">Configuration</a>
-<a href="architecture.html">Architecture</a>
+  <a href="installation.html">Installation</a>
+  <a href="features.html">Features</a>
+  <a href="bot-defense.html">Bot Defense</a>
+  <a href="configuration.html">Configuration</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="portable-data.html">Portable Data</a>
+  <a href="mcp.html">MCP Server</a>
+  <a href="telemetry.html">Telemetry</a>
+  <a href="why-ea.html">Why ea.js?</a>
 </div>
-<p class="footer">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen</p>
 </main>
+
+<footer class="footer">
+  <div class="quote">🛢️ "Data er den nye oljen!" -🦭</div>
+  <div class="links">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen — <a href="https://github.com/janit/ea">GitHub</a></div>
+</footer>
+
+<script>(function(){var h=document.querySelector(".site-header");if(!h)return;var inner=h.querySelector(".site-header-inner");function check(){h.removeAttribute("data-collapsed");h.classList.remove("nav-open");if(inner.scrollWidth>inner.clientWidth+2)h.setAttribute("data-collapsed","");}window.addEventListener("resize",check);check();h.style.visibility="";})()</script>
 </body>
 </html>

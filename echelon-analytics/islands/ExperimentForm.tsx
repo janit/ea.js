@@ -7,7 +7,9 @@ interface Variant {
   is_control: boolean;
 }
 
-export default function ExperimentForm() {
+export default function ExperimentForm(
+  { readOnly }: { readOnly?: boolean },
+) {
   const experimentId = useSignal("");
   const name = useSignal("");
   const description = useSignal("");
@@ -25,6 +27,8 @@ export default function ExperimentForm() {
   const error = useSignal<string | null>(null);
   const success = useSignal<string | null>(null);
   const loading = useSignal(false);
+
+  if (readOnly) return null;
 
   function addVariant() {
     const idx = variants.value.length;
@@ -94,22 +98,22 @@ export default function ExperimentForm() {
   }
 
   const inputCls =
-    "border border-[#1a3a1a] bg-[#0a0a0a] text-[#33ff33] px-2 py-1.5 text-sm w-full focus:border-[#33ff33] outline-none";
+    "border border-[var(--ea-border)] bg-[var(--ea-bg)] text-[var(--ea-primary)] px-2 py-1.5 text-sm w-full focus:border-[var(--ea-primary)] outline-none";
 
   return (
     <form onSubmit={submit}>
       {error.value && (
         <div
-          class="border border-[#661111] text-[#ff3333] px-3 py-1.5 text-sm mb-2"
-          style="background:#1a0a0a"
+          class="border border-[var(--ea-danger-border)] text-[var(--ea-danger)] px-3 py-1.5 text-sm mb-2"
+          style="background:var(--ea-danger-bg)"
         >
           {error.value}
         </div>
       )}
       {success.value && (
         <div
-          class="border border-[#1a3a1a] text-[#33ff33] px-3 py-1.5 text-sm mb-2"
-          style="background:#0d1a0d"
+          class="border border-[var(--ea-border)] text-[var(--ea-primary)] px-3 py-1.5 text-sm mb-2"
+          style="background:var(--ea-surface-alt)"
         >
           {success.value}
         </div>
@@ -152,7 +156,9 @@ export default function ExperimentForm() {
           />
         </div>
         <div class="flex items-center gap-1">
-          <span class="text-xs text-[#1a5a1a] whitespace-nowrap">alloc %</span>
+          <span class="text-xs text-[var(--ea-muted)] whitespace-nowrap">
+            alloc %
+          </span>
           <input
             type="number"
             class={inputCls}
@@ -166,7 +172,7 @@ export default function ExperimentForm() {
         </div>
       </div>
 
-      <h6 class="text-sm text-[#33ff33] mt-3 mb-1">variants</h6>
+      <h6 class="text-sm text-[var(--ea-primary)] mt-3 mb-1">variants</h6>
       {variants.value.map((v, i) => (
         <div key={i} class="grid grid-cols-12 gap-2 mb-1 items-center">
           <div class="col-span-3">
@@ -210,7 +216,7 @@ export default function ExperimentForm() {
             />
           </div>
           <div class="col-span-2">
-            <label class="flex items-center gap-1 text-sm text-[#1a9a1a]">
+            <label class="flex items-center gap-1 text-sm text-[var(--ea-text)]">
               <input
                 type="checkbox"
                 checked={v.is_control}
@@ -228,7 +234,7 @@ export default function ExperimentForm() {
             {variants.value.length > 2 && (
               <button
                 type="button"
-                class="text-xs text-[#ff3333] hover:text-[#ff6666]"
+                class="text-xs text-[var(--ea-danger)] hover:text-[var(--ea-danger)]"
                 onClick={() => removeVariant(i)}
               >
                 remove
@@ -241,14 +247,14 @@ export default function ExperimentForm() {
       <div class="flex gap-2 mt-2">
         <button
           type="button"
-          class="px-3 py-1.5 text-xs border border-[#1a3a1a] text-[#1a9a1a] hover:text-[#33ff33] hover:border-[#33ff33]"
+          class="px-3 py-1.5 text-xs border border-[var(--ea-border)] text-[var(--ea-text)] hover:text-[var(--ea-primary)] hover:border-[var(--ea-primary)]"
           onClick={addVariant}
         >
           + add variant
         </button>
         <button
           type="submit"
-          class="px-3 py-1.5 text-xs border border-[#33ff33] text-[#33ff33] hover:bg-[#33ff33] hover:text-[#0a0a0a] disabled:opacity-50"
+          class="px-3 py-1.5 text-xs border border-[var(--ea-primary)] text-[var(--ea-primary)] hover:bg-[var(--ea-primary)] hover:text-[var(--ea-bg)] disabled:opacity-50"
           disabled={loading.value}
         >
           {loading.value ? "creating..." : "> create experiment"}

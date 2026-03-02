@@ -1,17 +1,15 @@
-# Fresh project
+# Echelon Analytics
 
-Your new Fresh project is ready to go. You can follow the Fresh "Getting
-Started" guide here: https://fresh.deno.dev/docs/getting-started
+Application code for [Echelon Analytics](https://ea.js.org/) — see the root
+[README](../README.md) for full documentation.
 
-### Usage
-
-Make sure to install Deno:
-https://docs.deno.com/runtime/getting_started/installation
-
-Then start the project in development mode:
-
-```
-deno task dev
+```bash
+deno task dev       # Development server (Vite HMR)
+deno task build     # Production build
+deno task start     # Start production server
+deno task check     # Format, lint, type-check, run tests
+deno task test      # Run server-side tests
+deno task test:e2e  # Run browser E2E tests (needs Chromium)
 ```
 
-This will watch the project directory and restart as necessary.
+🛢️ "Data er den nye oljen!" -🦭

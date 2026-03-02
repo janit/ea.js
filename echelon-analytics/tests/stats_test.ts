@@ -1,0 +1,300 @@
+import { assertEquals } from "@std/assert";
+import {
+  getCampaignDetail,
+  getCampaignStats,
+  getDashboardLive,
+  getExperimentStats,
+  getOverview,
+  getRealtime,
+} from "@/lib/stats.ts";
+import {
+  createTestDb,
+  insertDailyRollup,
+  insertEvent,
+  insertView,
+  YESTERDAY,
+} from "./_helpers.ts";
+
+// ── getOverview ─────────────────────────────────────────────────────────────
+
+Deno.test("getOverview — empty DB returns zeros", async () => {
+  const db = createTestDb();
+  const result = await getOverview(db, "test-site", 30);
+  assertEquals(result.site_id, "test-site");
+  assertEquals(result.visits, 0);
+  assertEquals(result.unique_visitors, 0);
+  assertEquals(result.top_paths.length, 0);
+  assertEquals(result.devices.length, 0);
+  assertEquals(result.countries.length, 0);
+  await db.close();
+});
+
+Deno.test("getOverview — counts daily rollup + today's raw", async () => {
+  const db = createTestDb();
+  // Add daily rollup for yesterday
+  await insertDailyRollup(db, {
+    site_id: "test-site",
+    date: YESTERDAY,
+    visits: 50,
+    unique_visitors: 40,
+  });
+  // Add today's raw views
+  await insertView(db, { site_id: "test-site", visitor_id: "today-1" });
+  await insertView(db, { site_id: "test-site", visitor_id: "today-2" });
+
+  const result = await getOverview(db, "test-site", 30);
+  assertEquals(result.visits, 52); // 50 from rollup + 2 from today
+  await db.close();
+});
+
+Deno.test("getOverview — filters by site_id", async () => {
+  const db = createTestDb();
+  await insertDailyRollup(db, { site_id: "site-a", visits: 100 });
+  await insertDailyRollup(db, { site_id: "site-b", visits: 200 });
+
+  const result = await getOverview(db, "site-a", 30);
+  assertEquals(result.visits >= 100, true);
+  assertEquals(result.site_id, "site-a");
+  await db.close();
+});
+
+Deno.test("getOverview — devices breakdown from daily rollup", async () => {
+  const db = createTestDb();
+  await insertDailyRollup(db, {
+    device_type: "desktop",
+    visits: 60,
+  });
+  await insertDailyRollup(db, {
+    device_type: "mobile",
+    visits: 40,
+  });
+
+  const result = await getOverview(db, "test-site", 30);
+  assertEquals(result.devices.length, 2);
+  await db.close();
+});
+
+Deno.test("getOverview — excludes bot views from today's count", async () => {
+  const db = createTestDb();
+  await insertView(db, { bot_score: 0, visitor_id: "human" });
+  await insertView(db, { bot_score: 80, visitor_id: "bot" });
+
+  const result = await getOverview(db, "test-site", 30);
+  // Bot views (score >= 50) should be excluded from today count
+  assertEquals(result.visits, 1);
+  await db.close();
+});
+
+// ── getRealtime ─────────────────────────────────────────────────────────────
+
+Deno.test("getRealtime — empty DB returns zeros", async () => {
+  const db = createTestDb();
+  const result = await getRealtime(db, "test-site");
+  assertEquals(result.active_visitors, 0);
+  assertEquals(result.pageviews, 0);
+  assertEquals(result.active_paths.length, 0);
+  await db.close();
+});
+
+Deno.test("getRealtime — counts recent views", async () => {
+  const db = createTestDb();
+  const now = new Date().toISOString();
+  await insertView(db, { visitor_id: "rt-1", created_at: now });
+  await insertView(db, { visitor_id: "rt-2", created_at: now });
+
+  const result = await getRealtime(db, "test-site");
+  assertEquals(result.active_visitors, 2);
+  assertEquals(result.pageviews, 2);
+  await db.close();
+});
+
+Deno.test("getRealtime — excludes bots", async () => {
+  const db = createTestDb();
+  const now = new Date().toISOString();
+  await insertView(db, { visitor_id: "human", bot_score: 0, created_at: now });
+  await insertView(db, { visitor_id: "bot", bot_score: 60, created_at: now });
+
+  const result = await getRealtime(db, "test-site");
+  assertEquals(result.active_visitors, 1);
+  await db.close();
+});
+
+// ── getCampaignStats ────────────────────────────────────────────────────────
+
+Deno.test("getCampaignStats — empty DB returns empty array", async () => {
+  const db = createTestDb();
+  const result = await getCampaignStats(db);
+  assertEquals(result.length, 0);
+  await db.close();
+});
+
+Deno.test("getCampaignStats — returns campaign with view counts", async () => {
+  const db = createTestDb();
+  await db.run(
+    `INSERT INTO utm_campaigns (id, name, utm_campaign, site_id) VALUES (?, ?, ?, ?)`,
+    "camp-1",
+    "Spring Sale",
+    "spring-sale",
+    "test-site",
+  );
+  await insertView(db, { utm_campaign: "spring-sale" });
+  await insertView(db, { utm_campaign: "spring-sale" });
+
+  const result = await getCampaignStats(db);
+  assertEquals(result.length, 1);
+  assertEquals(result[0].name, "Spring Sale");
+  assertEquals(result[0].views, 2);
+  await db.close();
+});
+
+// ── getCampaignDetail ───────────────────────────────────────────────────────
+
+Deno.test("getCampaignDetail — returns breakdowns", async () => {
+  const db = createTestDb();
+  await insertView(db, {
+    utm_campaign: "test-camp",
+    utm_source: "google",
+    utm_medium: "cpc",
+  });
+
+  const result = await getCampaignDetail(db, "test-camp", "test-site", 30);
+  assertEquals(typeof result.bySource, "object");
+  assertEquals(typeof result.byMedium, "object");
+  assertEquals(typeof result.dailyTrend, "object");
+  assertEquals(typeof result.topPaths, "object");
+  await db.close();
+});
+
+// ── getExperimentStats ──────────────────────────────────────────────────────
+
+Deno.test("getExperimentStats — empty DB returns empty array", async () => {
+  const db = createTestDb();
+  const result = await getExperimentStats(db);
+  assertEquals(result.length, 0);
+  await db.close();
+});
+
+Deno.test("getExperimentStats — returns experiment with variants", async () => {
+  const db = createTestDb();
+  await db.run(
+    `INSERT INTO experiments (experiment_id, name, status, metric_event_type)
+     VALUES (?, ?, ?, ?)`,
+    "exp-1",
+    "Button Color Test",
+    "active",
+    "click",
+  );
+  await db.run(
+    `INSERT INTO experiment_variants (experiment_id, variant_id, name, weight, is_control)
+     VALUES (?, ?, ?, ?, ?)`,
+    "exp-1",
+    "control",
+    "Blue Button",
+    50,
+    1,
+  );
+  await db.run(
+    `INSERT INTO experiment_variants (experiment_id, variant_id, name, weight, is_control)
+     VALUES (?, ?, ?, ?, ?)`,
+    "exp-1",
+    "variant-a",
+    "Red Button",
+    50,
+    0,
+  );
+
+  const result = await getExperimentStats(db);
+  assertEquals(result.length, 1);
+  assertEquals(result[0].name, "Button Color Test");
+  assertEquals(result[0].variants.length, 2);
+  await db.close();
+});
+
+Deno.test("getExperimentStats — computes conversion rates", async () => {
+  const db = createTestDb();
+  await db.run(
+    `INSERT INTO experiments (experiment_id, name, status, metric_event_type)
+     VALUES (?, ?, ?, ?)`,
+    "exp-2",
+    "CTA Test",
+    "active",
+    "form_submit",
+  );
+  await db.run(
+    `INSERT INTO experiment_variants (experiment_id, variant_id, name, weight, is_control)
+     VALUES (?, ?, ?, ?, ?)`,
+    "exp-2",
+    "control",
+    "Original",
+    50,
+    1,
+  );
+  await db.run(
+    `INSERT INTO experiment_variants (experiment_id, variant_id, name, weight, is_control)
+     VALUES (?, ?, ?, ?, ?)`,
+    "exp-2",
+    "variant-b",
+    "New CTA",
+    50,
+    0,
+  );
+
+  // Insert some events for the experiment
+  for (let i = 0; i < 5; i++) {
+    await insertEvent(db, {
+      event_type: "click",
+      experiment_id: "exp-2",
+      variant_id: "control",
+      session_id: `session-ctrl-${i}`,
+    });
+  }
+  await insertEvent(db, {
+    event_type: "form_submit",
+    experiment_id: "exp-2",
+    variant_id: "control",
+    session_id: "session-ctrl-0",
+  });
+
+  const result = await getExperimentStats(db);
+  assertEquals(result.length, 1);
+  const control = result[0].variants.find((v) => v.is_control);
+  assertEquals(control !== undefined, true);
+  assertEquals(control!.impressions, 5);
+  assertEquals(control!.conversions, 1);
+  await db.close();
+});
+
+// ── getDashboardLive ────────────────────────────────────────────────────────
+
+Deno.test("getDashboardLive — empty DB returns zeros", async () => {
+  const db = createTestDb();
+  const result = await getDashboardLive(db, "test-site");
+  assertEquals(result.now.activeVisitors, 0);
+  assertEquals(result.now.estimatedBots, 0);
+  assertEquals(result.now.pageviews, 0);
+  assertEquals(result.recentVisitors.length, 0);
+  assertEquals(result.recentEvents.length, 0);
+  await db.close();
+});
+
+Deno.test("getDashboardLive — counts recent visitors and bots", async () => {
+  const db = createTestDb();
+  const now = new Date().toISOString();
+  await insertView(db, {
+    visitor_id: "human-1",
+    bot_score: 0,
+    created_at: now,
+  });
+  await insertView(db, {
+    visitor_id: "human-2",
+    bot_score: 10,
+    created_at: now,
+  });
+  await insertView(db, { visitor_id: "bot-1", bot_score: 70, created_at: now });
+
+  const result = await getDashboardLive(db, "test-site");
+  assertEquals(result.now.activeVisitors, 2);
+  assertEquals(result.now.estimatedBots, 1);
+  assertEquals(result.now.pageviews, 2);
+  await db.close();
+});

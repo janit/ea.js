@@ -168,7 +168,7 @@ export async function runDailyMaintenance(db: DbAdapter): Promise<void> {
       date,
     );
 
-    await db.exec("PRAGMA incremental_vacuum(100)");
+    await db.exec("PRAGMA incremental_vacuum(2000)");
     console.log(
       `[echelon] daily maintenance: completed in ${Date.now() - start}ms`,
     );

@@ -3,36 +3,55 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Installation — ea.js Echelon Analytics</title>
+<title>Installation — Echelon Analytics</title>
 <meta name="description" content="Install Echelon Analytics with Deno or Docker. Setup guide for reverse proxies (Caddy, Nginx), Cloudflare, authentication, and single-process deployment.">
 <link rel="canonical" href="https://ea.js.org/installation.html">
 <link rel="icon" href="favicon.ico">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="ea.js — Echelon Analytics">
-<meta property="og:title" content="Installation — ea.js Echelon Analytics">
+<meta property="og:site_name" content="Echelon Analytics">
+<meta property="og:title" content="Installation — Echelon Analytics">
 <meta property="og:description" content="Install Echelon Analytics with Deno or Docker. Setup guide for reverse proxies, Cloudflare, and authentication.">
 <meta property="og:url" content="https://ea.js.org/installation.html">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Installation — ea.js Echelon Analytics">
+<meta name="twitter:title" content="Installation — Echelon Analytics">
 <meta name="twitter:description" content="Install Echelon Analytics with Deno or Docker. Setup guide for reverse proxies, Cloudflare, and authentication.">
 <link rel="stylesheet" href="css/style.css">
 <script async src="https://ea.islets.app/ea.js" data-site="echelon-analytics" data-cookie></script>
 </head>
 <body>
-<nav><a href="index.html">ea.js</a> <span class="sep">/</span> <a href="installation.html">installation</a></nav>
+
+<header class="site-header" style="visibility:hidden">
+  <div class="site-header-inner">
+    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
+    <a href="installation.html">Installation</a>
+    <a href="features.html">Features</a>
+    <a href="api.html">API</a>
+    <a href="bot-defense.html">Bot Defense</a>
+    <a href="configuration.html">Config</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="portable-data.html">Portable Data</a>
+    <a href="mcp.html">MCP</a>
+    <a href="telemetry.html">Telemetry</a>
+    <a href="why-ea.html">Why ea.js?</a>
+  </div>
+</header>
+
+<nav><a href="index.html">Echelon 🩺</a> <span class="sep">/</span> Installation</nav>
 <main>
-<h1>&gt; Installation</h1>
+<h1>Installation</h1>
 <p class="tagline">Get Echelon Analytics running in under a minute.</p>
 
 <hr>
 
 <h2>Prerequisites</h2>
 <ul>
-<li><a href="https://deno.land">Deno</a> 2.x (includes SQLite via <code>node:sqlite</code>)</li>
-<li>No external database — single SQLite file, zero config</li>
+  <li><a href="https://deno.land">Deno</a> 2.x (includes SQLite via <code>node:sqlite</code>)</li>
+  <li>No external database — single SQLite file, zero config</li>
 </ul>
 
 <h2>Quick Start</h2>
+<p class="seal-tip">🖥️ "No Deno yet? <code>curl -fsSL https://deno.land/install.sh | sh</code> and you're good to go on Linux and macOS." -<span class="seal">🦭</span></p>
 <pre>git clone https://github.com/janit/ea.git
 cd ea/echelon-analytics
 deno task dev</pre>
@@ -63,7 +82,10 @@ deno lint .
 deno check main.ts
 
 # Update Fresh framework
-deno task update</pre>
+deno task update
+
+# Start MCP server (read-only analytics for AI agents)
+deno task mcp</pre>
 
 <h2>Docker</h2>
 <p>Multi-stage build with non-root user and health check:</p>
@@ -77,11 +99,11 @@ docker run -p 1947:1947 -v echelon-data:/app/data echelon-analytics</pre>
 
 <h3>Docker Details</h3>
 <ul>
-<li>Base image: <code>denoland/deno:2.7.1</code></li>
-<li>Uses <code>tini</code> for proper PID 1 signal handling</li>
-<li>Non-root user <code>echelon</code> (UID 1001)</li>
-<li>Health check: <code>GET /api/health</code> every 30s</li>
-<li>Build args: <code>VERSION</code>, <code>GIT_HASH</code></li>
+  <li>Base image: <code>denoland/deno:2.7.1</code></li>
+  <li>Uses <code>tini</code> for proper PID 1 signal handling</li>
+  <li>Non-root user <code>echelon</code> (UID 1001)</li>
+  <li>Health check: <code>GET /api/health</code> every 30s</li>
+  <li>Build args: <code>VERSION</code>, <code>GIT_HASH</code></li>
 </ul>
 
 <h3>Docker with Build Args</h3>
@@ -90,15 +112,39 @@ docker run -p 1947:1947 -v echelon-data:/app/data echelon-analytics</pre>
   --build-arg GIT_HASH=$(git rev-parse --short HEAD) \
   -t echelon-analytics .</pre>
 
-<h2>Reverse Proxy (Caddy)</h2>
-<p>Example Caddyfile for automatic HTTPS:</p>
+<h2>Reverse Proxy</h2>
+<p>The application already sets <code>Content-Security-Policy</code>, <code>X-Frame-Options</code>, and <code>X-Content-Type-Options</code> on HTML responses. <strong>Do not duplicate those in your proxy</strong> — it causes double headers. The proxy should add headers the app does not set: <code>Strict-Transport-Security</code>, <code>Referrer-Policy</code>, <code>Permissions-Policy</code>, and strip the <code>Server</code> header.</p>
+<p>Set <code>ECHELON_TRUST_PROXY=true</code> when behind a reverse proxy to read the real client IP from <code>X-Forwarded-For</code> / <code>X-Real-IP</code>.</p>
+
+<h3>Caddy</h3>
 <pre>echelon.example.com {
     reverse_proxy localhost:1947
-}</pre>
 
-<h2>Reverse Proxy (Nginx)</h2>
+    encode gzip zstd
+
+    header {
+        # Only headers the app does NOT set.
+        # Do NOT add CSP, X-Frame-Options, or X-Content-Type-Options here.
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
+
+    @tracking {
+        path /b.gif /e /api/ingest
+    }
+    request_body @tracking {
+        max_size 64KB
+    }
+}</pre>
+<p>A full example is in <code>confs/Caddyfile.example</code>.</p>
+
+<h3>Nginx</h3>
 <pre>server {
+    listen 443 ssl;
     server_name echelon.example.com;
+
     location / {
         proxy_pass http://127.0.0.1:1947;
         proxy_set_header Host $host;
@@ -106,8 +152,17 @@ docker run -p 1947:1947 -v echelon-data:/app/data echelon-analytics</pre>
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+
+    # Only headers the app does NOT set.
+    # Do NOT add CSP, X-Frame-Options, or X-Content-Type-Options here.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    server_tokens off;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml image/svg+xml;
 }</pre>
-<p>Set <code>ECHELON_TRUST_PROXY=true</code> when behind a reverse proxy to read the real client IP from <code>X-Forwarded-For</code> / <code>X-Real-IP</code>.</p>
 
 <h2>Cloudflare</h2>
 <p>When deployed behind Cloudflare, set:</p>
@@ -130,18 +185,30 @@ ECHELON_USERNAME=admin
 ECHELON_PASSWORD_HASH=pbkdf2$600000$&lt;salt&gt;$&lt;hash&gt;</pre>
 <p>Both auth modes can be used simultaneously.</p>
 
+<p class="seal-tip">🔐 "Did you know both API token and username/password auth can be used simultaneously? Use the bearer token for CI/CD pipelines and password login for your team's dashboard." -<span class="seal">🦭</span></p>
+
 <h2>Single-Process Constraint</h2>
 <p>Echelon Analytics keeps all state in memory (sessions, rate limiter, burst maps, buffered writers). You must run with a single Deno worker — do <strong>not</strong> use the <code>--parallel</code> flag with <code>deno serve</code>.</p>
 
 <hr>
 <div class="doc-nav">
-<a href="features.html">Features</a>
-<a href="api.html">API Reference</a>
-<a href="bot-defense.html">Bot Defense</a>
-<a href="configuration.html">Configuration</a>
-<a href="architecture.html">Architecture</a>
+  <a href="features.html">Features</a>
+  <a href="api.html">API Reference</a>
+  <a href="bot-defense.html">Bot Defense</a>
+  <a href="configuration.html">Configuration</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="portable-data.html">Portable Data</a>
+  <a href="mcp.html">MCP Server</a>
+  <a href="telemetry.html">Telemetry</a>
+  <a href="why-ea.html">Why ea.js?</a>
 </div>
-<p class="footer">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen</p>
 </main>
+
+<footer class="footer">
+  <div class="quote">🛢️ "Data er den nye oljen!" -🦭</div>
+  <div class="links">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen — <a href="https://github.com/janit/ea">GitHub</a></div>
+</footer>
+
+<script>(function(){var h=document.querySelector(".site-header");if(!h)return;var inner=h.querySelector(".site-header-inner");function check(){h.removeAttribute("data-collapsed");h.classList.remove("nav-open");if(inner.scrollWidth>inner.clientWidth+2)h.setAttribute("data-collapsed","");}window.addEventListener("resize",check);check();h.style.visibility="";})()</script>
 </body>
 </html>

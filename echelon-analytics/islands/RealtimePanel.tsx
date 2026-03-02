@@ -49,8 +49,8 @@ export default function RealtimePanel({ siteId }: Props) {
   if (error.value) {
     return (
       <div
-        class="border border-[#661111] text-[#ff3333] px-4 py-2 text-sm"
-        style="background:#1a0a0a"
+        class="border border-[var(--ea-danger-border)] text-[var(--ea-danger)] px-4 py-2 text-sm"
+        style="background:var(--ea-danger-bg)"
       >
         ERROR: {error.value}
       </div>
@@ -59,7 +59,7 @@ export default function RealtimePanel({ siteId }: Props) {
 
   if (isStale.value) {
     return (
-      <p class="text-[#1a5a1a] text-sm">
+      <p class="text-[var(--ea-muted)] text-sm">
         Loading realtime data...<span class="cursor"></span>
       </p>
     );
@@ -70,10 +70,10 @@ export default function RealtimePanel({ siteId }: Props) {
   return (
     <div>
       <div class="flex gap-2 mb-3 items-center">
-        <span class="bg-[#1a3a1a] text-[#33ff33] text-xs px-2 py-1">
+        <span class="bg-[var(--ea-border)] text-[var(--ea-primary)] text-xs px-2 py-1">
           site: {siteId}
         </span>
-        <span class="text-xs text-[#1a5a1a]">
+        <span class="text-xs text-[var(--ea-muted)]">
           updated: {lastUpdate.value}
         </span>
       </div>
@@ -90,26 +90,29 @@ export default function RealtimePanel({ siteId }: Props) {
       </div>
 
       {d.active_paths.length > 0 && (
-        <div class="bg-[#111] border border-[#1a3a1a] overflow-hidden">
-          <div class="px-4 py-3 border-b border-[#1a3a1a]">
-            <h3 class="text-sm text-[#33ff33]">Active Pages</h3>
+        <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
+          <div class="px-4 py-3 border-b border-[var(--ea-border)]">
+            <h3 class="text-sm text-[var(--ea-primary)]">Active Pages</h3>
           </div>
           <table class="w-full text-sm">
             <thead>
-              <tr class="border-b border-[#1a3a1a]">
-                <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <tr class="border-b border-[var(--ea-border)]">
+                <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                   Path
                 </th>
-                <th class="text-right px-4 py-2 text-xs text-[#1a5a1a]">
+                <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
                   Views
                 </th>
               </tr>
             </thead>
             <tbody>
               {d.active_paths.map((p) => (
-                <tr key={p.path} class="border-b border-[#0d1a0d]">
-                  <td class="px-4 py-1.5 text-[#1a9a1a]">{p.path}</td>
-                  <td class="px-4 py-1.5 text-right tabular-nums text-[#33ff33]">
+                <tr
+                  key={p.path}
+                  class="border-b border-[var(--ea-surface-alt)]"
+                >
+                  <td class="px-4 py-1.5 text-[var(--ea-text)]">{p.path}</td>
+                  <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-primary)]">
                     {p.views}
                   </td>
                 </tr>

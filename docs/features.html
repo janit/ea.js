@@ -3,26 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Features — ea.js Echelon Analytics</title>
-<meta name="description" content="Tracking features: pageviews, scroll depth, clicks, outbound links, downloads, forms, Core Web Vitals, UTM campaigns, A/B experiments. Cookieless by default, SPA-aware.">
+<title>Features — Echelon Analytics</title>
+<meta name="description" content="Tracking features: pageviews, scroll depth, clicks, outbound links, downloads, forms, Core Web Vitals, UTM campaigns, A/B experiments. Live dashboard, visitor detail, events listing. Cookieless by default, SPA-aware.">
 <link rel="canonical" href="https://ea.js.org/features.html">
 <link rel="icon" href="favicon.ico">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="ea.js — Echelon Analytics">
-<meta property="og:title" content="Features — ea.js Echelon Analytics">
-<meta property="og:description" content="Tracking features: pageviews, scroll depth, clicks, outbound links, downloads, forms, Core Web Vitals, UTM campaigns, A/B experiments.">
+<meta property="og:site_name" content="Echelon Analytics">
+<meta property="og:title" content="Features — Echelon Analytics">
+<meta property="og:description" content="Tracking features: pageviews, scroll depth, clicks, outbound links, downloads, forms, Core Web Vitals, UTM campaigns, A/B experiments. Live dashboard with real-time charts.">
 <meta property="og:url" content="https://ea.js.org/features.html">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Features — ea.js Echelon Analytics">
+<meta name="twitter:title" content="Features — Echelon Analytics">
 <meta name="twitter:description" content="Tracking features: pageviews, scroll depth, clicks, outbound links, downloads, forms, Core Web Vitals, UTM campaigns, A/B experiments.">
 <link rel="stylesheet" href="css/style.css">
 <script async src="https://ea.islets.app/ea.js" data-site="echelon-analytics" data-cookie></script>
 </head>
 <body>
-<nav><a href="index.html">ea.js</a> <span class="sep">/</span> <a href="features.html">features</a></nav>
+
+<header class="site-header" style="visibility:hidden">
+  <div class="site-header-inner">
+    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
+    <a href="installation.html">Installation</a>
+    <a href="features.html">Features</a>
+    <a href="api.html">API</a>
+    <a href="bot-defense.html">Bot Defense</a>
+    <a href="configuration.html">Config</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="portable-data.html">Portable Data</a>
+    <a href="mcp.html">MCP</a>
+    <a href="telemetry.html">Telemetry</a>
+    <a href="why-ea.html">Why ea.js?</a>
+  </div>
+</header>
+
+<nav><a href="index.html">Echelon 🩺</a> <span class="sep">/</span> Features</nav>
 <main>
-<h1>&gt; Features</h1>
-<p class="tagline">Tracking features, script tag options, JS API, and SPA support.</p>
+<h1>Features</h1>
+<p class="tagline">Tracking features, script tag options, JS API, live dashboard, and SPA support.</p>
 
 <hr>
 
@@ -98,48 +116,275 @@
 <h2>SPA Support</h2>
 <p>The tracker automatically patches <code>pushState</code>, <code>replaceState</code>, and listens for <code>popstate</code> events. When the route changes, a new pageview beacon fires automatically. No configuration needed for React Router, Vue Router, SvelteKit, Fresh, or any other SPA framework.</p>
 
-<h2>UTM Campaign Tracking</h2>
-<p>UTM parameters are automatically extracted from the URL and persisted in <code>sessionStorage</code> for the session duration:</p>
-<ul>
-<li><code>utm_campaign</code></li>
-<li><code>utm_source</code></li>
-<li><code>utm_medium</code></li>
-<li><code>utm_content</code></li>
-<li><code>utm_term</code></li>
-</ul>
-<p>All tracked events within the session inherit UTM parameters.</p>
+<p class="seal-tip">🧭 "Did you know the tracker automatically detects route changes in React, Vue, Svelte, and Fresh without any configuration? Just add the script tag and pageviews fire on every navigation." -<span class="seal">🦭</span></p>
 
-<h2>A/B Experiments</h2>
-<p>Create experiments via the admin dashboard or API. Variants are allocated based on weight. The tracker script automatically picks up experiment assignments and includes <code>experiment_id</code> and <code>variant_id</code> in all events.</p>
+<h2 id="utm">UTM Campaign Tracking</h2>
+<p>Echelon tracks all five standard UTM parameters. Attribution is session-scoped and persisted across page loads.</p>
+
+<h3>Supported Parameters</h3>
+<table>
+<tr><th>Parameter</th><th>Purpose</th><th>Example</th></tr>
+<tr><td><code>utm_campaign</code></td><td>Campaign name / ID</td><td><code>spring-2026</code></td></tr>
+<tr><td><code>utm_source</code></td><td>Traffic source</td><td><code>newsletter</code>, <code>google</code></td></tr>
+<tr><td><code>utm_medium</code></td><td>Marketing medium</td><td><code>email</code>, <code>cpc</code>, <code>social</code></td></tr>
+<tr><td><code>utm_content</code></td><td>Ad creative / content variant</td><td><code>hero-banner</code>, <code>sidebar-link</code></td></tr>
+<tr><td><code>utm_term</code></td><td>Search keyword / term</td><td><code>analytics+tool</code></td></tr>
+</table>
+
+<h3>How It Works</h3>
+<ol>
+  <li><strong>Visitor arrives</strong> with UTM parameters in the URL:<br>
+    <code>https://example.com/pricing?utm_campaign=spring-2026&amp;utm_source=newsletter&amp;utm_medium=email</code></li>
+  <li><strong>Tracker extracts</strong> all five UTM params and stores them in <code>sessionStorage</code> (key: <code>_eutm</code>).</li>
+  <li><strong>Every pageview</strong> beacon (<code>/b.gif</code>) includes the UTM parameters for the rest of the session — even when the visitor navigates to pages without UTM in the URL.</li>
+  <li><strong>SPA navigation</strong>: On route changes (<code>pushState</code>/<code>replaceState</code>), the tracker re-reads URL params. If the new URL has a <code>utm_campaign</code>, it updates the session. Otherwise, the stored values persist.</li>
+  <li><strong>Server validates</strong>: The beacon endpoint checks <code>utm_campaign</code> against a whitelist of active campaigns (refreshed every 60 seconds from the database). Unknown campaigns are silently dropped — only registered, active campaigns record UTM data.</li>
+</ol>
+
+<h3>Setting Up Campaigns</h3>
+<p>Campaigns must be registered before they appear in stats. Create them via the admin dashboard or the API:</p>
+
+<h4>Admin Dashboard</h4>
+<p>Navigate to <strong>/admin/campaigns</strong> and fill in the form:</p>
+<ul>
+  <li><strong>ID</strong> — URL-safe slug (alphanumeric, <code>.</code>, <code>_</code>, <code>-</code>), e.g. <code>spring-2026</code></li>
+  <li><strong>Name</strong> — Human-readable label, e.g. <code>Spring Launch 2026</code></li>
+  <li><strong>UTM Campaign</strong> — Exact value that will appear in URLs, e.g. <code>spring-2026</code></li>
+  <li><strong>Site ID</strong> — Scope to a specific site (defaults to <code>default</code>)</li>
+</ul>
+
+<h4>API</h4>
+<pre>POST /api/campaigns
+Authorization: Bearer &lt;token&gt;
+
+{
+  "id": "spring-2026",
+  "name": "Spring Launch 2026",
+  "utm_campaign": "spring-2026",
+  "site_id": "default"
+}</pre>
+
+<h3>Campaign Lifecycle</h3>
+<table>
+<tr><th>Status</th><th>Behavior</th></tr>
+<tr><td><code>active</code></td><td>UTM data is recorded. Appears in stats.</td></tr>
+<tr><td><code>paused</code></td><td>New UTM data is silently dropped. Existing data remains in stats.</td></tr>
+<tr><td><code>archived</code></td><td>Same as paused. Hidden from the default campaign list in the admin UI.</td></tr>
+</table>
+<p>Change status via <code>PATCH /api/campaigns/:id</code> with <code>{ "status": "paused" }</code>, or use the buttons on the campaign detail page.</p>
+
+<h3>Campaign Stats</h3>
+<p>The campaign detail page (and <code>GET /api/stats/campaigns?id=X</code>) shows:</p>
+<ul>
+  <li><strong>Summary</strong> — Total views and unique visitors for the campaign</li>
+  <li><strong>By Source</strong> — Breakdown by <code>utm_source</code> (views + visitors)</li>
+  <li><strong>By Medium</strong> — Breakdown by <code>utm_medium</code></li>
+  <li><strong>By Content</strong> — Breakdown by <code>utm_content</code></li>
+  <li><strong>By Term</strong> — Breakdown by <code>utm_term</code></li>
+  <li><strong>Daily Trend</strong> — Views per day over the selected period</li>
+  <li><strong>Top Landing Pages</strong> — Pages visitors entered through</li>
+</ul>
+<p>All stats exclude bot traffic (bot_score &ge; 50). Default lookback is 30 days (max 90).</p>
+
+<div class="card">
+  <h3>UTM URL Builder</h3>
+  <p>Build tagged URLs by appending parameters to your landing page. For example, a newsletter link promoting a spring sale:</p>
+  <pre>https://example.com/sale?utm_campaign=spring-2026&amp;utm_source=newsletter&amp;utm_medium=email&amp;utm_content=hero-cta</pre>
+  <p>All five parameters are optional except <code>utm_campaign</code>, which must match an active campaign.</p>
+</div>
+
+<p class="seal-tip">📊 "Tip: The campaign whitelist prevents spam traffic from polluting your stats. If a crawler hits your URL with a random utm_campaign, it gets quietly dropped because there's no matching active campaign." -<span class="seal">🦭</span></p>
+
+<hr>
+
+<h2 id="experiments">A/B Experiments</h2>
+<p>Run split tests to measure the impact of changes. Echelon tracks impressions, conversions, and calculates statistical significance automatically.</p>
+
+<h3>How It Works</h3>
+<ol>
+  <li><strong>Create an experiment</strong> with variants and a conversion metric (event type to measure)</li>
+  <li><strong>Your application</strong> assigns visitors to variants and sends events with experiment attribution</li>
+  <li><strong>Echelon counts</strong> unique sessions per variant (impressions) and sessions that triggered the metric event (conversions)</li>
+  <li><strong>Statistical significance</strong> is calculated automatically using a two-proportion z-test</li>
+</ol>
+
+<h3>Creating an Experiment</h3>
+
+<h4>Admin Dashboard</h4>
+<p>Navigate to <strong>/admin/experiments</strong> and fill in the form:</p>
+<ul>
+  <li><strong>Experiment ID</strong> — URL-safe slug, e.g. <code>checkout-v2</code></li>
+  <li><strong>Name</strong> — Human-readable label, e.g. <code>Checkout Redesign</code></li>
+  <li><strong>Description</strong> — Optional context</li>
+  <li><strong>Metric Event Type</strong> — The event type that counts as a conversion, e.g. <code>purchase</code>, <code>signup</code>, <code>click</code></li>
+  <li><strong>Allocation %</strong> — Percentage of traffic enrolled in the experiment (1–100, default 100)</li>
+  <li><strong>Variants</strong> — At least 2, up to 20. Each has an ID, name, weight, and a control flag</li>
+</ul>
+
+<h4>API</h4>
+<pre>POST /api/experiments
+Authorization: Bearer &lt;token&gt;
+
+{
+  "experiment_id": "checkout-v2",
+  "name": "Checkout Redesign",
+  "description": "Test new checkout flow vs original",
+  "metric_event_type": "purchase",
+  "allocation_percent": 100,
+  "variants": [
+    { "variant_id": "control", "name": "Original", "weight": 50, "is_control": true },
+    { "variant_id": "redesign", "name": "New Flow", "weight": 50 }
+  ]
+}</pre>
+
+<h3>Variant Weights</h3>
+<p>Weights are <strong>relative</strong>, not percentages. Two variants with weights 50/50 each get 50% of traffic. Weights of 1/1 or 100/100 produce the same split. Three variants with weights 2/1/1 get 50%/25%/25%.</p>
+<p>Your application is responsible for reading the weights and assigning visitors to variants (e.g. using a hash of the visitor ID modulo total weight). Echelon stores the weights but does not perform assignment — this keeps the system flexible for any frontend framework.</p>
+
+<h3>Sending Experiment Events</h3>
+<p>Include <code>experiment_id</code> and <code>variant_id</code> in your event data. Use the JavaScript API:</p>
+<pre>// Track an impression (user saw the variant)
+window.echelon.track("page_view", {
+  experiment_id: "checkout-v2",
+  variant_id: "redesign"
+});
+
+// Track a conversion (user completed the goal)
+window.echelon.track("purchase", {
+  experiment_id: "checkout-v2",
+  variant_id: "redesign"
+});</pre>
+<p>Both fields are stored in the <code>semantic_events</code> table. Echelon counts:</p>
+<ul>
+  <li><strong>Impressions</strong> — Unique sessions that sent any event for the experiment+variant</li>
+  <li><strong>Conversions</strong> — Unique sessions that sent the <code>metric_event_type</code> event for the experiment+variant</li>
+</ul>
+
+<h3>Experiment Lifecycle</h3>
+<table>
+<tr><th>Status</th><th>Behavior</th></tr>
+<tr><td><code>draft</code></td><td>Created but not yet active. Events are still recorded if sent.</td></tr>
+<tr><td><code>active</code></td><td>Running. Sets <code>started_at</code> timestamp on first activation.</td></tr>
+<tr><td><code>paused</code></td><td>Temporarily stopped. Events still recorded if sent.</td></tr>
+<tr><td><code>completed</code></td><td>Finished. Sets <code>ended_at</code> timestamp. Results frozen.</td></tr>
+<tr><td><code>archived</code></td><td>Same as completed. Hidden from default views.</td></tr>
+</table>
+<p>Change status via <code>PATCH /api/experiments/:id</code> with <code>{ "status": "active" }</code>.</p>
+
+<h3>Reading Results</h3>
+<p>The experiment detail page (and <code>GET /api/stats/experiments?experiment_id=X</code>) shows per-variant:</p>
+<table>
+<tr><th>Metric</th><th>Description</th></tr>
+<tr><td><strong>Impressions</strong></td><td>Unique sessions enrolled in this variant</td></tr>
+<tr><td><strong>Conversions</strong></td><td>Unique sessions that triggered the metric event</td></tr>
+<tr><td><strong>Conversion Rate</strong></td><td><code>conversions / impressions</code></td></tr>
+<tr><td><strong>Relative Uplift</strong></td><td><code>(variant_rate - control_rate) / control_rate</code> — only shown for non-control variants</td></tr>
+<tr><td><strong>Significance</strong></td><td>Statistical significance level (see below)</td></tr>
+</table>
+
+<h3>Statistical Significance</h3>
+<p>Echelon uses a <strong>two-proportion z-test</strong> to determine if differences between variants are statistically significant:</p>
+<ol>
+  <li>Calculate pooled proportion: <code>p = (conversions_control + conversions_variant) / (impressions_control + impressions_variant)</code></li>
+  <li>Calculate standard error: <code>SE = &radic;(p &times; (1-p) &times; (1/n1 + 1/n2))</code></li>
+  <li>Calculate z-score: <code>z = |rate_variant - rate_control| / SE</code></li>
+</ol>
+<table>
+<tr><th>Z-Score</th><th>Significance</th></tr>
+<tr><td>&ge; 2.576</td><td>99% significant (p &lt; 0.01)</td></tr>
+<tr><td>&ge; 1.960</td><td>95% significant (p &lt; 0.05)</td></tr>
+<tr><td>&ge; 1.645</td><td>90% significant (p &lt; 0.10)</td></tr>
+<tr><td>&lt; 1.645</td><td>Not statistically significant</td></tr>
+</table>
+<p><strong>Minimum data:</strong> At least 100 impressions per variant are required before significance is calculated. Below this threshold, results show "Insufficient data".</p>
+
+<div class="card">
+  <h3>Example: Button Color Test</h3>
+  <p>You want to test whether a green "Buy" button converts better than the original blue one.</p>
+  <ol>
+    <li>Create experiment <code>button-color</code> with metric <code>purchase</code> and two variants: <code>control</code> (blue, weight 50) and <code>green</code> (green, weight 50).</li>
+    <li>In your frontend, assign visitors to variants based on a hash of their session ID. Show the appropriate button color.</li>
+    <li>When the page loads, send: <code>echelon.track("page_view", { experiment_id: "button-color", variant_id: "green" })</code></li>
+    <li>When the user clicks Buy, send: <code>echelon.track("purchase", { experiment_id: "button-color", variant_id: "green" })</code></li>
+    <li>Check <strong>/admin/experiments</strong> to see conversion rates and significance as data accumulates.</li>
+  </ol>
+</div>
+
+<p class="seal-tip">🧪 "Wait for at least 95% significance before declaring a winner. Early results often flip as more data comes in." -<span class="seal">🦭</span></p>
 
 <h2>Cookieless by Default</h2>
 <p>Without <code>data-cookie</code>, visitors are identified by a daily-rotating HMAC-SHA256 hash of IP + User-Agent + site ID + date. This produces a 16-character hex identifier that:</p>
 <ul>
-<li>Resets every day — no cross-day tracking</li>
-<li>Cannot be reversed to recover the original IP</li>
-<li>Requires no cookie consent (GDPR/ePrivacy compliant)</li>
+  <li>Resets every day — no cross-day tracking</li>
+  <li>Cannot be reversed to recover the original IP</li>
+  <li>Requires no cookie consent (GDPR/ePrivacy compliant)</li>
 </ul>
 <p>Add <code>data-cookie</code> to enable a persistent visitor cookie for returning visitor tracking.</p>
 
 <h2>Admin Dashboard</h2>
+<p>The admin UI at <code>/admin/</code> provides a full-featured analytics dashboard:</p>
+
+<div class="features">
+  <div class="feature">
+    <h3>Live Dashboard</h3>
+    <p>Now gauge with active visitors, 60-minute and 24-hour trend charts, recent visitors and events tables. Auto-refreshes every 10 seconds.</p>
+  </div>
+  <div class="feature">
+    <h3>Visitor Detail</h3>
+    <p>Full visitor history with page views, events, bot scores, devices, countries, interaction times. Exclude/include controls.</p>
+  </div>
+  <div class="feature">
+    <h3>Events Listing</h3>
+    <p>Browse all semantic events with type badges, filtering by event type, and search. Paginated with visitor links.</p>
+  </div>
+  <div class="feature">
+    <h3>Professional Design</h3>
+    <p>Government-inspired admin interface with navy and burgundy palette — designed for visual integrity. Clean, professional look with live stats bar and persistent navigation controls.</p>
+  </div>
+</div>
+
 <ul>
-<li>Overview with KPIs, daily trends, top pages, devices, countries, referrers</li>
-<li>Realtime visitor monitoring (10-second polling)</li>
-<li>Bot management — suspicious visitors, exclude/include controls</li>
-<li>A/B experiments — create, manage, view conversion uplift</li>
-<li>UTM campaigns — track and break down by source, medium, content</li>
-<li>Performance metrics — CI/CD benchmark tracking with trends</li>
+  <li>Persistent site selector and date range picker in navigation</li>
+  <li>Overview with KPIs, daily trends, top pages, devices, countries, referrers</li>
+  <li>Realtime visitor monitoring</li>
+  <li>Visitor views listing — filterable, sortable, paginated</li>
+  <li>Bot management — suspicious visitors, exclude/include controls</li>
+  <li>A/B experiments — create, manage, view conversion uplift</li>
+  <li>UTM campaigns — track and break down by source, medium, content</li>
+  <li>Performance metrics — CI/CD benchmark tracking with trends</li>
+  <li>Configurable timezone display for all admin timestamps</li>
+</ul>
+
+<hr>
+
+<h2>Future Plans</h2>
+<p>No roadmap exists. This project is built for personal use. It might get worked on, it might not. If you find it interesting you're welcome to <a href="https://github.com/janit/ea">fork it, open pull requests, or contribute</a> — just work within the <a href="https://github.com/janit/ea/blob/main/LICENSE">AGPL-3.0 license</a>.</p>
+<p>Known ideas on the horizon:</p>
+<ul>
+  <li><strong>MariaDB/PostgreSQL support</strong> if SQLite ever becomes a bottleneck. It probably won't.</li>
+  <li><strong>Ad system integration</strong> — Google AdSense, Meta Ads, and other ad platform tracking may be integrated at a later date to correlate ad spend with analytics data.</li>
+  <li><strong>MCP write tools</strong> — The <a href="mcp.html">MCP server</a> is currently read-only by design. Write tools (campaign/experiment management) may be added in a future version.</li>
 </ul>
 
 <hr>
 <div class="doc-nav">
-<a href="installation.html">Installation</a>
-<a href="api.html">API Reference</a>
-<a href="bot-defense.html">Bot Defense</a>
-<a href="configuration.html">Configuration</a>
-<a href="architecture.html">Architecture</a>
+  <a href="installation.html">Installation</a>
+  <a href="api.html">API Reference</a>
+  <a href="bot-defense.html">Bot Defense</a>
+  <a href="configuration.html">Configuration</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="portable-data.html">Portable Data</a>
+  <a href="mcp.html">MCP Server</a>
+  <a href="telemetry.html">Telemetry</a>
+  <a href="why-ea.html">Why ea.js?</a>
 </div>
-<p class="footer">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen</p>
 </main>
+
+<footer class="footer">
+  <div class="quote">🛢️ "Data er den nye oljen!" -🦭</div>
+  <div class="links">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen — <a href="https://github.com/janit/ea">GitHub</a></div>
+</footer>
+
+<script>(function(){var h=document.querySelector(".site-header");if(!h)return;var inner=h.querySelector(".site-header-inner");function check(){h.removeAttribute("data-collapsed");h.classList.remove("nav-open");if(inner.scrollWidth>inner.clientWidth+2)h.setAttribute("data-collapsed","");}window.addEventListener("resize",check);check();h.style.visibility="";})()</script>
 </body>
 </html>

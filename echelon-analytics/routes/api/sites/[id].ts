@@ -29,8 +29,15 @@ export const handler = define.handlers({
       );
     }
 
-    const css = typeof body.consent_css === "string"
+    const rawCss = typeof body.consent_css === "string"
       ? body.consent_css.slice(0, 4096)
+      : null;
+    // Strip url(), @import, and expression() to prevent CSS-based data exfiltration
+    const css = rawCss
+      ? rawCss.replace(
+        /url\s*\(|@import\b|expression\s*\(/gi,
+        "/* blocked */",
+      )
       : null;
 
     await db.run(

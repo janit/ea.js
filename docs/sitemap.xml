@@ -29,6 +29,26 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://ea.js.org/portable-data.html</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ea.js.org/mcp.html</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ea.js.org/telemetry.html</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ea.js.org/why-ea.html</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ea.js.org/about.html</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://ea.js.org/llms.txt</loc>
     <priority>0.5</priority>
   </url>

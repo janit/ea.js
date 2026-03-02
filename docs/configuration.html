@@ -3,25 +3,43 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Configuration — ea.js Echelon Analytics</title>
-<meta name="description" content="All Echelon Analytics environment variables: server, auth, bot defense, rate limiting, buffered writes, proxy settings, and Cloudflare integration.">
+<title>Configuration — Echelon Analytics</title>
+<meta name="description" content="All Echelon Analytics environment variables: server, auth, bot defense, rate limiting, buffered writes, proxy settings, timezone, and Cloudflare integration.">
 <link rel="canonical" href="https://ea.js.org/configuration.html">
 <link rel="icon" href="favicon.ico">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="ea.js — Echelon Analytics">
-<meta property="og:title" content="Configuration — ea.js Echelon Analytics">
-<meta property="og:description" content="All Echelon Analytics environment variables: server, auth, bot defense, rate limiting, buffered writes, proxy settings, and Cloudflare integration.">
+<meta property="og:site_name" content="Echelon Analytics">
+<meta property="og:title" content="Configuration — Echelon Analytics">
+<meta property="og:description" content="All Echelon Analytics environment variables: server, auth, bot defense, rate limiting, buffered writes, proxy settings, timezone, and Cloudflare integration.">
 <meta property="og:url" content="https://ea.js.org/configuration.html">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Configuration — ea.js Echelon Analytics">
+<meta name="twitter:title" content="Configuration — Echelon Analytics">
 <meta name="twitter:description" content="All Echelon Analytics environment variables: server, auth, bot defense, rate limiting, buffered writes, and proxy settings.">
 <link rel="stylesheet" href="css/style.css">
 <script async src="https://ea.islets.app/ea.js" data-site="echelon-analytics" data-cookie></script>
 </head>
 <body>
-<nav><a href="index.html">ea.js</a> <span class="sep">/</span> <a href="configuration.html">configuration</a></nav>
+
+<header class="site-header" style="visibility:hidden">
+  <div class="site-header-inner">
+    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
+    <a href="installation.html">Installation</a>
+    <a href="features.html">Features</a>
+    <a href="api.html">API</a>
+    <a href="bot-defense.html">Bot Defense</a>
+    <a href="configuration.html">Config</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="portable-data.html">Portable Data</a>
+    <a href="mcp.html">MCP</a>
+    <a href="telemetry.html">Telemetry</a>
+    <a href="why-ea.html">Why ea.js?</a>
+  </div>
+</header>
+
+<nav><a href="index.html">Echelon 🩺</a> <span class="sep">/</span> Configuration</nav>
 <main>
-<h1>&gt; Configuration</h1>
+<h1>Configuration</h1>
 <p class="tagline">All environment variables with defaults and descriptions.</p>
 
 <hr>
@@ -78,12 +96,36 @@
 <tr><td><code>ECHELON_ALLOWED_ORIGINS</code></td><td><em>(empty)</em></td><td>Comma-separated domains allowed to load the tracker. Empty = all</td></tr>
 </table>
 
+<h2>Admin UI</h2>
+<table>
+<tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>ECHELON_LIVE_STATS_MINUTES</code></td><td><code>10</code></td><td>Time window (minutes) for live stats in the admin nav bar</td></tr>
+<tr><td><code>ECHELON_DISPLAY_TIMEZONE</code></td><td><code>UTC</code></td><td>IANA timezone for admin UI timestamps (e.g. <code>Europe/Oslo</code>). Data is stored in UTC.</td></tr>
+</table>
+
+<h2>MCP Server</h2>
+<table>
+<tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>ECHELON_URL</code></td><td><em>(required)</em></td><td>Base URL of the Echelon Analytics instance the MCP server queries (e.g. <code>https://ea.islets.app</code>)</td></tr>
+<tr><td><code>ECHELON_SECRET</code></td><td><em>(empty)</em></td><td>Bearer token for authenticated instances. Not needed for public mode instances.</td></tr>
+</table>
+
+<h2>Anonymization &amp; Public Mode</h2>
+<table>
+<tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>ECHELON_ANONYMIZE_SITES</code></td><td><em>(empty)</em></td><td>Comma-separated site IDs to anonymize before storage. Records for these sites get HMAC-hashed visitor IDs, fictional countries, redacted referrers, and codename UTMs. See <a href="telemetry.html">Telemetry</a></td></tr>
+<tr><td><code>ECHELON_PUBLIC_MODE</code></td><td><code>false</code></td><td>Disable admin auth requirement. The dashboard is openly accessible without login — ideal for public analytics dashboards</td></tr>
+</table>
+
 <h2>Miscellaneous</h2>
 <table>
 <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
 <tr><td><code>ECHELON_COOKIE_CONSENT</code></td><td><code>false</code></td><td>Show consent banner before setting visitor cookie</td></tr>
 <tr><td><code>ECHELON_IGNORED_SITES</code></td><td><em>(empty)</em></td><td>Comma-separated site IDs to silently ignore. <code>"smoke-test"</code> always ignored</td></tr>
+<tr><td><code>ECHELON_TELEMETRY</code></td><td><em>(unset)</em></td><td>Override telemetry: <code>true</code> = force on, <code>false</code> = force off, unset = respect admin choice. See <a href="telemetry.html">Telemetry</a></td></tr>
 </table>
+
+<p class="seal-tip">🌍 "Did you know you can set per-site suspect countries with ECHELON_SITE_SUSPECT_COUNTRIES? Format: <code>site1:CN,RU;site2:KP</code> for granular bot defense." -<span class="seal">🦭</span></p>
 
 <h2>Example .env</h2>
 <pre># Core
@@ -103,17 +145,34 @@ ECHELON_BEHIND_CLOUDFLARE=true
 # Bot defense
 ECHELON_SUSPECT_COUNTRIES=CN
 ECHELON_SUSPECT_POINTS=30
-ECHELON_RATE_LIMIT_MAX=100</pre>
+ECHELON_RATE_LIMIT_MAX=100
+
+# Admin UI
+ECHELON_LIVE_STATS_MINUTES=10
+ECHELON_DISPLAY_TIMEZONE=Europe/Oslo
+
+# Telemetry (optional — unset = prompt admin on first access)
+# ECHELON_TELEMETRY=false</pre>
 
 <hr>
 <div class="doc-nav">
-<a href="installation.html">Installation</a>
-<a href="features.html">Features</a>
-<a href="api.html">API Reference</a>
-<a href="bot-defense.html">Bot Defense</a>
-<a href="architecture.html">Architecture</a>
+  <a href="installation.html">Installation</a>
+  <a href="features.html">Features</a>
+  <a href="api.html">API Reference</a>
+  <a href="bot-defense.html">Bot Defense</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="portable-data.html">Portable Data</a>
+  <a href="mcp.html">MCP Server</a>
+  <a href="telemetry.html">Telemetry</a>
+  <a href="why-ea.html">Why ea.js?</a>
 </div>
-<p class="footer">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen</p>
 </main>
+
+<footer class="footer">
+  <div class="quote">🛢️ "Data er den nye oljen!" -🦭</div>
+  <div class="links">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen — <a href="https://github.com/janit/ea">GitHub</a></div>
+</footer>
+
+<script>(function(){var h=document.querySelector(".site-header");if(!h)return;var inner=h.querySelector(".site-header-inner");function check(){h.removeAttribute("data-collapsed");h.classList.remove("nav-open");if(inner.scrollWidth>inner.clientWidth+2)h.setAttribute("data-collapsed","");}window.addEventListener("resize",check);check();h.style.visibility="";})()</script>
 </body>
 </html>

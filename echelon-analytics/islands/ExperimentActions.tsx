@@ -21,13 +21,8 @@ export default function ExperimentActions() {
         body: JSON.stringify({ status }),
       }).then((r) => {
         if (r.ok) location.reload();
-        else {console.error(
-            "[echelon] experiment status update failed:",
-            r.status,
-          );}
-      }).catch((err) =>
-        console.error("[echelon] experiment status update failed:", err)
-      );
+        else alert("Failed to update experiment status");
+      }).catch(() => alert("Failed to update experiment status"));
     }
 
     container.addEventListener("click", handleClick);

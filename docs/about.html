@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About the Name — Echelon Analytics</title>
+<meta name="description" content="The story behind the Echelon Analytics name: signals intelligence heritage, the stethoscope, and why some people shorten it to ea.js.">
+<link rel="canonical" href="https://ea.js.org/about.html">
+<link rel="icon" href="favicon.ico">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Echelon Analytics">
+<meta property="og:title" content="About the Name — Echelon Analytics">
+<meta property="og:description" content="The story behind the Echelon Analytics name: signals intelligence heritage, the stethoscope, and why some people shorten it to ea.js.">
+<meta property="og:url" content="https://ea.js.org/about.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="About the Name — Echelon Analytics">
+<meta name="twitter:description" content="The story behind the Echelon Analytics name: signals intelligence heritage, the stethoscope, and why some people shorten it to ea.js.">
+<link rel="stylesheet" href="css/style.css">
+<script async src="https://ea.islets.app/ea.js" data-site="echelon-analytics" data-cookie></script>
+</head>
+<body>
+
+<header class="site-header" style="visibility:hidden">
+  <div class="site-header-inner">
+    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
+    <a href="installation.html">Installation</a>
+    <a href="features.html">Features</a>
+    <a href="api.html">API</a>
+    <a href="bot-defense.html">Bot Defense</a>
+    <a href="configuration.html">Config</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="portable-data.html">Portable Data</a>
+    <a href="mcp.html">MCP</a>
+    <a href="telemetry.html">Telemetry</a>
+    <a href="why-ea.html">Why ea.js?</a>
+  </div>
+</header>
+
+<nav><a href="index.html">Echelon 🩺</a> <span class="sep">/</span> About the Name</nav>
+<main>
+<h1>About the Name</h1>
+<p class="tagline">Echelon Analytics — what's in a name?</p>
+
+<hr>
+
+<h2>Echelon</h2>
+<p><strong>ECHELON</strong> was a signals intelligence (SIGINT) collection and analysis network operated by the Five Eyes alliance (Australia, Canada, New Zealand, the United Kingdom, and the United States). Originally established during the Cold War to monitor military and diplomatic communications, the system evolved into a global surveillance network capable of intercepting telephone calls, fax transmissions, emails, and other data traffic.</p>
+
+<p>The name was chosen with a healthy dose of irony. Where the original ECHELON was about mass surveillance without consent, Echelon Analytics is built on the opposite principle: <strong>privacy-first analytics that works without cookies, without tracking individuals across days, and without storing IP addresses</strong>. The only thing we intercept is bot traffic.</p>
+
+<h2>The Stethoscope 🩺</h2>
+<p>The stethoscope serves as Echelon's visual shorthand. Where surveillance tools are invasive, a stethoscope is diagnostic — it listens carefully to understand health, not to spy. That's what Echelon Analytics does: it gives you a health check on your website traffic, filtering signal from noise, without being invasive.</p>
+
+<p>The full product name is <strong>Echelon Analytics</strong>. The shorthand is <strong>Echelon 🩺</strong>.</p>
+
+<h2>ea.js</h2>
+<p>Some people choose to shorten Echelon 🩺 to <code>ea.js</code> — the filename of the tracker script that gets embedded on your site. The domain <a href="https://ea.js.org">ea.js.org</a> follows the same convention.</p>
+
+<p>Those familiar with the history of web analytics may notice a certain resemblance to other well-known tracking script filenames. That's entirely coincidental, of course.</p>
+
+<h2>Mette-Maya-Marit 🦭</h2>
+<p>The project mascot is a seal named <strong>Mette-Maya-Marit</strong> (MMM for short). She appears throughout the documentation offering helpful tips, and her image graces the <a href="index.html">homepage</a> as the official <em>Echelon Analytics Seal of Approval</em>.</p>
+
+<p>The name is a nod to the project's governmental visual integrity — navy and burgundy, naturally.</p>
+
+<p class="seal-tip">🦭 "Three names, one seal. You can call me MMM for short." -<span class="seal">🦭</span></p>
+
+<h2>Origin Story</h2>
+<p>Echelon Analytics started as an embedded analytics module inside <a href="https://afroute.com">afroute.com</a>, a hobby project for African road trip route planning. Google Analytics wasn't cutting it — bloated, confusing, and full of bot spam — so a lightweight tracker was built directly into the app. Just pageviews and basic stats at first, but it grew in functionality over time.</p>
+<p>The analytics code was ripped out into a standalone project when implementing <a href="https://islets.app">Islets Spatial CMS</a>. The public demo instance runs at <a href="https://ea.islets.app">ea.islets.app</a>, where it tracks its own documentation site in public mode — fully transparent, anonymized data, no login required.</p>
+
+<h2>"Data er den nye oljen!"</h2>
+<p>The project's tagline translates from Norwegian as <em>"Data is the new oil!"</em> — a phrase commonly attributed to the broader tech discourse but particularly fitting for a Norwegian-themed project, given Norway's relationship with both petroleum and data sovereignty.</p>
+
+<h2>Built With</h2>
+<p>Echelon Analytics wouldn't exist without the exceptional work of the <a href="https://deno.com/">Deno</a> and <a href="https://fresh.deno.dev/">Fresh</a> teams. Their runtime and framework made it possible for a solo developer and <a href="https://claude.com/claude-code">Claude Code</a> to build a production-grade analytics platform — from WASM proof-of-work and SQLite integration to server-rendered Preact islands — without wrestling with bundlers, transpilers, or dependency hell. If you're looking for a stack that lets you focus on your actual product, give Deno + Fresh a serious look. And if you need hosting, <a href="https://deno.com/deploy">Deno Deploy</a> offers a seamless deployment experience — and helps fund the continued development of the Deno project.</p>
+
+<hr>
+<div class="doc-nav">
+  <a href="installation.html">Installation</a>
+  <a href="features.html">Features</a>
+  <a href="api.html">API Reference</a>
+  <a href="bot-defense.html">Bot Defense</a>
+  <a href="configuration.html">Configuration</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="portable-data.html">Portable Data</a>
+  <a href="mcp.html">MCP Server</a>
+  <a href="telemetry.html">Telemetry</a>
+  <a href="why-ea.html">Why ea.js?</a>
+</div>
+</main>
+
+<footer class="footer">
+  <div class="quote">🛢️ "Data er den nye oljen!" -🦭</div>
+  <div class="links">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen — <a href="https://github.com/janit/ea">GitHub</a></div>
+</footer>
+
+<script>(function(){var h=document.querySelector(".site-header");if(!h)return;var inner=h.querySelector(".site-header-inner");function check(){h.removeAttribute("data-collapsed");h.classList.remove("nav-open");if(inner.scrollWidth>inner.clientWidth+2)h.setAttribute("data-collapsed","");}window.addEventListener("resize",check);check();h.style.visibility="";})()</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why ea.js? — Echelon Analytics</title>
+<meta name="description" content="Why choose ea.js over Google Analytics? Data portability, open source transparency, no cookie banners, WASM bot defense, and privacy without compromise.">
+<link rel="canonical" href="https://ea.js.org/why-ea.html">
+<link rel="icon" href="favicon.ico">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Echelon Analytics">
+<meta property="og:title" content="Why ea.js? — Echelon Analytics">
+<meta property="og:description" content="Why choose ea.js over Google Analytics? Data portability, open source transparency, no cookie banners, WASM bot defense, and privacy without compromise.">
+<meta property="og:url" content="https://ea.js.org/why-ea.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Why ea.js? — Echelon Analytics">
+<meta name="twitter:description" content="Why choose ea.js over Google Analytics? Data portability, open source transparency, no cookie banners, WASM bot defense, and privacy without compromise.">
+<link rel="stylesheet" href="css/style.css">
+<script async src="https://ea.islets.app/ea.js" data-site="echelon-analytics" data-cookie></script>
+</head>
+<body>
+
+<header class="site-header" style="visibility:hidden">
+  <div class="site-header-inner">
+    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
+    <a href="installation.html">Installation</a>
+    <a href="features.html">Features</a>
+    <a href="api.html">API</a>
+    <a href="bot-defense.html">Bot Defense</a>
+    <a href="configuration.html">Config</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="portable-data.html">Portable Data</a>
+    <a href="mcp.html">MCP</a>
+    <a href="telemetry.html">Telemetry</a>
+    <a href="why-ea.html">Why ea.js?</a>
+  </div>
+</header>
+
+<nav><a href="index.html">Echelon 🩺</a> <span class="sep">/</span> Why ea.js?</nav>
+<main>
+<h1>Why ea.js?</h1>
+<p class="tagline">Google Analytics used to be the default. Then it became a liability. Here's why ea.js exists.</p>
+
+<hr>
+
+<div class="card">
+  <h3>The Short Version</h3>
+  <ul>
+    <li>Your analytics live in a <strong>single SQLite file</strong> you own and control</li>
+    <li>The source code is <strong>open and auditable</strong> — AGPL-3.0</li>
+    <li><strong>No cookies</strong> by default — no consent banners needed</li>
+    <li><strong>WASM proof-of-work</strong> bot defense that actually works</li>
+    <li><strong>One script tag</strong>, one database, one process — no SDK bloat</li>
+    <li><strong>No data shared</strong> with ad networks, ever</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2>Your Data, Your File</h2>
+<p>With Google Analytics, your data lives in Google's cloud. You can export some of it — eventually, through a clunky interface, in formats designed for BigQuery. Switching away means losing your history or paying for expensive data pipelines.</p>
+<p>With Echelon, everything lives in a <strong>single SQLite file</strong>. Copy it to your laptop with <code>cp</code>. Query it with DuckDB, Datasette, or any SQLite-compatible tool. Back it up with <code>rsync</code>. There's no vendor lock-in because there's no vendor — the database file <em>is</em> the product.</p>
+<p>Raw visitor data is kept for 90 days alongside daily rollups for 2 years. You can re-analyze with different bot score thresholds at any time. Try doing that with GA4.</p>
+<p><a href="portable-data.html">Learn more about Portable Data &rarr;</a></p>
+
+<h2>Transparency</h2>
+<p>Google Analytics is a proprietary black box. You don't know exactly what it collects, how it processes data, or what happens to it behind the scenes. The tracking script is minified and obfuscated. The scoring algorithms are undocumented. When something changes, you find out from a blog post — if you're lucky.</p>
+<p>Echelon's entire codebase is <strong>AGPL-3.0 licensed</strong> and published on GitHub. Every line of the tracking script, every bot scoring heuristic, every database query — you can read it, audit it, and verify it does exactly what the documentation says. The bot scoring algorithm in <code>lib/bot-score.ts</code> is ~200 lines of readable TypeScript with inline comments explaining every factor.</p>
+<p>When you deploy Echelon, you know precisely what runs on your server. No surprises.</p>
+
+<h2>Open Source Fixes Things</h2>
+<p>Found a bug in GA4? File a support ticket. Wait weeks. Maybe it gets fixed in a future release. Maybe it doesn't. You have no visibility into the process and no ability to fix it yourself.</p>
+<p>Found a bug in Echelon? Open an issue on GitHub — or just fix it yourself. Fork the repo, make your change, submit a pull request. The turnaround is as fast as you want it to be. Community contributions are welcome and reviewed promptly.</p>
+<p>Open source means you're never stuck waiting for someone else to prioritize your problem. If something breaks, you can patch it the same day.</p>
+
+<h2>No Cookie Banners</h2>
+<p>Google Analytics uses cookies for cross-session tracking. In the EU, that means you need a cookie consent banner — and if users decline, you lose that data entirely. Cookie banners are annoying, they hurt UX, and they introduce legal compliance overhead.</p>
+<p>Echelon is <strong>cookieless by default</strong>. Visitors are identified by a daily-rotating HMAC-SHA256 hash of IP + User-Agent + site ID + date. The hash resets every day, can't be reversed, and requires zero consent. No cross-day tracking, no consent popups, no GDPR headaches.</p>
+<p>If you <em>want</em> returning visitor tracking, add <code>data-cookie</code> to the script tag — but it's opt-in, not the default.</p>
+
+<h2>Bot Defense That Works</h2>
+<p>Google Analytics has "bot filtering" — a checkbox in the admin panel. It catches some obvious bots, but referral spam and sophisticated crawlers still pollute your data. GA4's bot detection is a black box, and when it fails, you have no tools to investigate or fix it.</p>
+<p>Echelon takes bot defense seriously. Every tracker script embeds a <strong>runtime-generated WebAssembly module</strong> that browsers must solve before pageviews are accepted. The WASM blob regenerates from a random seed every 6 hours — each cycle produces unique bytecode that bot toolkits can't pre-compute. On top of that, a heuristic scoring system (0&ndash;100) evaluates every request using PoW results, interaction timing, geo data, headers, burst detection, and Cloudflare integration.</p>
+<p>Scores &ge; 50 are excluded from rollups. You can inspect every scored request in the admin UI and adjust thresholds. Full transparency, full control.</p>
+<p><a href="bot-defense.html">Learn more about Bot Defense &rarr;</a></p>
+
+<h2>Lightweight</h2>
+<p>Google Analytics requires a tag manager, SDK imports, consent management platforms, and a team to configure it all. The tracking snippet loads additional scripts, sets multiple cookies, and makes dozens of network requests. The total payload can exceed 100KB.</p>
+<p>Echelon is <strong>one script tag</strong>:</p>
+<pre>&lt;script async src="https://your-host/ea.js" data-site="my-site"&gt;&lt;/script&gt;</pre>
+<p>That's it. One script, one SQLite database, one Deno process. No tag managers, no SDK dependencies, no third-party libraries. The entire application is a single repository that builds and runs with <code>deno task start</code>.</p>
+
+<h2>Privacy Without Compromise</h2>
+<p>Google Analytics shares data with Google's advertising platform. Visitor behavior feeds into ad targeting, audience building, and cross-site profiling. When you add GA to your site, you're not just tracking visitors — you're contributing to a surveillance infrastructure.</p>
+<p>Echelon shares data with <strong>nobody</strong>. Your analytics database sits on your server. There are no third-party requests, no data pipelines to ad networks, no user profiling, no cross-site tracking. Visitors get clean page loads. You get clean data. That's the entire deal.</p>
+
+<hr>
+
+<p class="seal-tip">🛡️ "You wouldn't let a stranger read your diary. Why let one read your analytics?" -<span class="seal">🦭</span></p>
+
+<hr>
+<div class="doc-nav">
+  <a href="installation.html">Installation</a>
+  <a href="features.html">Features</a>
+  <a href="api.html">API Reference</a>
+  <a href="bot-defense.html">Bot Defense</a>
+  <a href="configuration.html">Configuration</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="portable-data.html">Portable Data</a>
+  <a href="mcp.html">MCP Server</a>
+  <a href="telemetry.html">Telemetry</a>
+</div>
+</main>
+
+<footer class="footer">
+  <div class="quote">🛢️ "Data er den nye oljen!" -🦭</div>
+  <div class="links">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen — <a href="https://github.com/janit/ea">GitHub</a></div>
+</footer>
+
+<script>(function(){var h=document.querySelector(".site-header");if(!h)return;var inner=h.querySelector(".site-header-inner");function check(){h.removeAttribute("data-collapsed");h.classList.remove("nav-open");if(inner.scrollWidth>inner.clientWidth+2)h.setAttribute("data-collapsed","");}window.addEventListener("resize",check);check();h.style.visibility="";})()</script>
+</body>
+</html>

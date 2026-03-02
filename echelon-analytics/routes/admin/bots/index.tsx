@@ -4,13 +4,24 @@ import { AdminNav } from "../../../components/AdminNav.tsx";
 import { getLiveStats } from "../../../lib/admin-stats.ts";
 import type { SQLParam } from "../../../lib/db/adapter.ts";
 import BotActions from "../../../islands/BotActions.tsx";
+import { PUBLIC_MODE } from "../../../lib/config.ts";
+import { formatTime } from "../../../lib/format.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
     const db = ctx.state.db;
     const siteId = ctx.state.siteId !== "default" ? ctx.state.siteId : null;
-    const minScore = parseInt(ctx.url.searchParams.get("min_score") ?? "25");
-    const limit = parseInt(url.searchParams.get("limit") ?? "50");
+    const minScore = Math.min(
+      100,
+      Math.max(
+        0,
+        parseInt(ctx.url.searchParams.get("min_score") ?? "25") || 25,
+      ),
+    );
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(ctx.url.searchParams.get("limit") ?? "50") || 50),
+    );
 
     const params: SQLParam[] = [minScore];
     let where = "WHERE bot_score >= ?";
@@ -56,30 +67,38 @@ export default define.page<typeof handler>(function SuspiciousPage({ state }) {
   const { rows, liveStats } = state.pageData;
 
   return (
-    <AdminNav title="Suspicious Visitors" liveStats={liveStats}>
-      <div class="bg-[#111] border border-[#1a3a1a] overflow-hidden">
+    <AdminNav
+      title="Bot Detection"
+      liveStats={liveStats}
+      siteId={state.siteId}
+      knownSites={state.knownSites}
+      days={state.days}
+      url={state.url}
+      telemetryState={state.telemetryState}
+    >
+      <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-[#1a3a1a]">
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+            <tr class="border-b border-[var(--ea-border)]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Visitor ID
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Score
               </th>
-              <th class="text-right px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Views
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Countries
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Devices
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Last Seen
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Actions
               </th>
             </tr>
@@ -88,7 +107,7 @@ export default define.page<typeof handler>(function SuspiciousPage({ state }) {
             {rows.map((r) => (
               <tr
                 key={r.visitor_id as string}
-                class={`border-b border-[#0d1a0d] ${
+                class={`border-b border-[var(--ea-surface-alt)] ${
                   r.is_excluded ? "excluded-row" : ""
                 }`}
               >
@@ -97,7 +116,7 @@ export default define.page<typeof handler>(function SuspiciousPage({ state }) {
                     href={`/admin/bots/${
                       encodeURIComponent(r.visitor_id as string)
                     }`}
-                    class="visitor-id text-[#33ff33] hover:text-[#66ff66]"
+                    class="visitor-id text-[var(--ea-primary)] hover:text-[var(--ea-primary-hover)]"
                   >
                     {(r.visitor_id as string).slice(0, 12)}...
                   </a>
@@ -105,22 +124,23 @@ export default define.page<typeof handler>(function SuspiciousPage({ state }) {
                 <td class="px-4 py-1.5">
                   {scoreBadge(r.max_bot_score as number)}
                 </td>
-                <td class="px-4 py-1.5 text-right tabular-nums text-[#33ff33]">
+                <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-primary)]">
                   {r.pageviews as number}
                 </td>
-                <td class="px-4 py-1.5 text-[#1a9a1a]">
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {r.countries as string}
                 </td>
-                <td class="px-4 py-1.5 text-[#1a9a1a]">
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {r.devices as string}
                 </td>
-                <td class="px-4 py-1.5 text-[#1a5a1a]">
-                  {(r.last_seen as string).slice(0, 16)}
+                <td class="px-4 py-1.5 text-[var(--ea-muted)]">
+                  {formatTime(r.last_seen as string)}
                 </td>
                 <td class="px-4 py-1.5">
                   <BotActions
                     visitorId={r.visitor_id as string}
                     isExcluded={!!(r.is_excluded as number)}
+                    readOnly={PUBLIC_MODE}
                   />
                 </td>
               </tr>
@@ -129,7 +149,7 @@ export default define.page<typeof handler>(function SuspiciousPage({ state }) {
         </table>
       </div>
       {rows.length === 0 && (
-        <p class="text-[#1a5a1a] text-sm mt-4">
+        <p class="text-[var(--ea-muted)] text-sm mt-4">
           No suspicious visitors found.
         </p>
       )}

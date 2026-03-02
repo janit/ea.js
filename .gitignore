@@ -5,5 +5,6 @@ data/*
 *.db-wal
 *.db-shm
 .env
-.claude/
+.claude/*
+!.claude/settings.json
 node_modules/

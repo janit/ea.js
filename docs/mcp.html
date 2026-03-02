@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP Server for AI Agents — Echelon Analytics</title>
+<meta name="description" content="Read-only Model Context Protocol (MCP) server for Echelon Analytics: let Claude Code, Claude Desktop, and other AI agents query your web analytics data directly.">
+<link rel="canonical" href="https://ea.js.org/mcp.html">
+<link rel="icon" href="favicon.ico">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Echelon Analytics">
+<meta property="og:title" content="MCP Server for AI Agents — Echelon Analytics">
+<meta property="og:description" content="Read-only Model Context Protocol server: let AI agents query your analytics data. 6 tools for overview, realtime, campaigns, experiments, and dashboard stats.">
+<meta property="og:url" content="https://ea.js.org/mcp.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MCP Server for AI Agents — Echelon Analytics">
+<meta name="twitter:description" content="Read-only MCP server: let AI agents query your analytics. 6 pre-defined tools, read-only database access, zero PII exposure.">
+<link rel="stylesheet" href="css/style.css">
+<script async src="https://ea.islets.app/ea.js" data-site="echelon-analytics" data-cookie></script>
+</head>
+<body>
+
+<header class="site-header" style="visibility:hidden">
+  <div class="site-header-inner">
+    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
+    <a href="installation.html">Installation</a>
+    <a href="features.html">Features</a>
+    <a href="api.html">API</a>
+    <a href="bot-defense.html">Bot Defense</a>
+    <a href="configuration.html">Config</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="portable-data.html">Portable Data</a>
+    <a href="mcp.html">MCP</a>
+    <a href="telemetry.html">Telemetry</a>
+    <a href="why-ea.html">Why ea.js?</a>
+  </div>
+</header>
+
+<nav><a href="index.html">Echelon 🩺</a> <span class="sep">/</span> MCP Server</nav>
+<main>
+<h1>MCP Server for AI Agents</h1>
+<p class="tagline">Let Claude, ChatGPT, and other AI agents query your analytics directly.</p>
+
+<hr>
+
+<h2>Overview</h2>
+<p>Echelon Analytics includes a <a href="https://modelcontextprotocol.io/">Model Context Protocol</a> (MCP) server that lets AI agents query your analytics via the REST API. Point it at any Echelon instance — local or remote, public or authenticated.</p>
+
+<div class="card">
+  <h3>Why MCP?</h3>
+  <p>Instead of copying analytics data into prompts manually, MCP lets AI agents call pre-defined tools to fetch exactly what they need. Ask "how's my site doing?" and the agent queries your real analytics data in the background. 9 read-only tools, zero writes, zero PII exposure.</p>
+</div>
+
+<h2>Quick Start</h2>
+<pre># Public instance (no token needed)
+ECHELON_URL=https://ea.islets.app deno task mcp
+
+# Local instance with authentication
+ECHELON_URL=http://localhost:1947 ECHELON_SECRET=your-token deno task mcp</pre>
+
+<hr>
+
+<h2 id="how-to-use">How It Works</h2>
+<p>The MCP server is a thin bridge between AI agents and the Echelon REST API:</p>
+<ol>
+  <li>You set <code>ECHELON_URL</code> to point at any Echelon Analytics instance</li>
+  <li>The MCP server starts and connects to the AI agent via stdio (JSON-RPC)</li>
+  <li>When you ask a question, the AI agent picks the right MCP tool</li>
+  <li>The MCP server calls the corresponding <code>GET /api/*</code> endpoint (read-only — never POST, PATCH, or DELETE)</li>
+  <li>The API response is returned to the agent, which summarizes it for you</li>
+</ol>
+<p>For authenticated instances, set <code>ECHELON_SECRET</code> — the server passes it as a <code>Bearer</code> token for read-only access. The server only ever calls GET endpoints; it cannot create, modify, or delete any data even if the token has write privileges. For <code>PUBLIC_MODE</code> instances (like the public demo), no token is needed.</p>
+
+<h2>Setup</h2>
+
+<h3>1. Claude Code</h3>
+<p>The repo includes <code>.claude/settings.json</code> which auto-registers the MCP server. By default it points at the public demo instance. To use your own instance, edit the <code>env</code> block:</p>
+<pre>{
+  "mcpServers": {
+    "echelon-analytics": {
+      "command": "deno",
+      "args": ["task", "mcp"],
+      "cwd": "echelon-analytics",
+      "env": {
+        "ECHELON_URL": "https://your-instance.example.com",
+        "ECHELON_SECRET": "your-api-token"
+      }
+    }
+  }
+}</pre>
+<p>Then just open the project and ask questions — the tools are available automatically.</p>
+
+<h3>2. Claude Desktop</h3>
+<p>Add the server to your Claude Desktop config file:</p>
+<ul>
+  <li><strong>macOS:</strong> <code>~/Library/Application Support/Claude/claude_desktop_config.json</code></li>
+  <li><strong>Windows:</strong> <code>%APPDATA%\Claude\claude_desktop_config.json</code></li>
+  <li><strong>Linux:</strong> <code>~/.config/Claude/claude_desktop_config.json</code></li>
+</ul>
+<pre>{
+  "mcpServers": {
+    "echelon-analytics": {
+      "command": "deno",
+      "args": ["task", "mcp"],
+      "cwd": "/path/to/echelon-analytics",
+      "env": {
+        "ECHELON_URL": "https://your-instance.example.com",
+        "ECHELON_SECRET": "your-api-token"
+      }
+    }
+  }
+}</pre>
+<p>Restart Claude Desktop. You'll see the MCP tools icon in the chat input. Ask a question like "What are my top pages?" and Claude will use the analytics tools to answer.</p>
+
+<h3>3. Any MCP Client (stdio)</h3>
+<p>The server speaks JSON-RPC over stdio. Point any MCP-compatible client at it:</p>
+<pre># Public instance
+ECHELON_URL=https://ea.islets.app deno run -A mcp-server.ts
+
+# Authenticated instance
+ECHELON_URL=https://echelon.example.com ECHELON_SECRET=your-token deno run -A mcp-server.ts</pre>
+<p>Send a <code>tools/list</code> request to discover available tools, then <code>tools/call</code> with the tool name and parameters.</p>
+
+<h3>What You Can Ask</h3>
+<p>Once connected, try natural language questions. The AI agent picks the right tool automatically:</p>
+<table>
+<tr><th>Question</th><th>Tool Used</th></tr>
+<tr><td>"How's my site doing?"</td><td><code>analytics_overview</code></td></tr>
+<tr><td>"Who's on my site right now?"</td><td><code>analytics_realtime</code></td></tr>
+<tr><td>"Show me today's live dashboard"</td><td><code>analytics_dashboard</code></td></tr>
+<tr><td>"Which campaigns drove the most traffic?"</td><td><code>analytics_campaigns</code></td></tr>
+<tr><td>"Do campaign visitors actually use the feature we advertised?"</td><td><code>analytics_campaign_events</code></td></tr>
+<tr><td>"Break down the spring-sale campaign"</td><td><code>analytics_campaign_detail</code></td></tr>
+<tr><td>"How is my checkout-v2 experiment doing?"</td><td><code>analytics_experiments</code></td></tr>
+<tr><td>"What campaigns are set up?"</td><td><code>list_campaigns</code></td></tr>
+<tr><td>"What experiments are running?"</td><td><code>list_experiments</code></td></tr>
+<tr><td>"Compare this week vs last week"</td><td><code>analytics_overview</code> (called twice with different <code>days</code>)</td></tr>
+</table>
+
+<h3>Example Conversation</h3>
+<p>Here's what a typical session looks like in Claude Code or Claude Desktop:</p>
+
+<div class="card">
+<pre style="white-space:pre-wrap"><strong>You:</strong> How's echelon-analytics doing this week?
+
+<strong>Agent:</strong> <em>[calls analytics_overview with site_id="echelon-analytics", days=7]</em>
+
+Your site had 342 visits from 218 unique visitors this week.
+Top pages: /admin (89 views), /features.html (54), /installation.html (41).
+Traffic sources: 45% direct, 28% search, 18% social, 9% referral.
+Busiest day was Tuesday with 73 visits.
+
+<strong>You:</strong> Which campaigns are active?
+
+<strong>Agent:</strong> <em>[calls list_campaigns]</em>
+
+You have 3 campaigns:
+- spring-2026 (active) — "Spring Launch" on site default
+- docs-launch (active) — "Documentation Launch" on site echelon-analytics
+- old-promo (archived) — "Old Promo" on site default
+
+<strong>You:</strong> Break down the spring campaign
+
+<strong>Agent:</strong> <em>[calls analytics_campaign_detail with campaign_id="spring-2026"]</em>
+
+Spring Launch (last 30 days): 156 views, 89 unique visitors.
+By source: newsletter (72 views), twitter (48), google (36).
+By medium: email (72), social (48), cpc (36).
+Top landing page: /sale (94 views), / (38), /pricing (24).
+
+<strong>You:</strong> Do campaign visitors actually use the dashboard feature we advertised?
+
+<strong>Agent:</strong> <em>[calls analytics_campaign_events with site_id="my-app", event_type="feature_used"]</em>
+
+Campaign visitors trigger "feature_used" events at a much higher rate:
+- spring-2026: 89 visitors, 34 triggered feature_used (38.2% event rate)
+- docs-launch: 41 visitors, 22 triggered feature_used (53.7% event rate)
+- Organic (no campaign): 218 visitors, 29 triggered feature_used (13.3% event rate)
+
+Your docs-launch campaign drives visitors 4x more likely to use the
+feature compared to organic traffic.
+
+<strong>You:</strong> How's the checkout experiment?
+
+<strong>Agent:</strong> <em>[calls analytics_experiments with experiment_id="checkout-v2"]</em>
+
+Checkout Redesign — metric: purchase, status: active
+- Control (Original): 1,240 impressions, 62 conversions (5.0%)
+- Redesign (New Flow): 1,185 impressions, 78 conversions (6.6%)
+  Uplift: +31.3% — 95% statistically significant</pre>
+</div>
+
+<hr>
+
+<h2>Available Tools</h2>
+
+<table>
+<tr><th>Tool</th><th>Description</th><th>Parameters</th></tr>
+<tr>
+  <td><code>analytics_overview</code></td>
+  <td>Site overview: visits, unique visitors, top paths, devices, countries, referrers, and daily trend</td>
+  <td><code>site_id</code> (required), <code>days</code> (1–730, default 30)</td>
+</tr>
+<tr>
+  <td><code>analytics_realtime</code></td>
+  <td>Active visitors and top pages in the last 5 minutes</td>
+  <td><code>site_id</code> (required)</td>
+</tr>
+<tr>
+  <td><code>analytics_campaigns</code></td>
+  <td>UTM campaign stats: views and visitors grouped by campaign</td>
+  <td><code>days</code> (1–90, default 30), <code>campaign_id</code> (optional)</td>
+</tr>
+<tr>
+  <td><code>analytics_campaign_detail</code></td>
+  <td>Campaign breakdown: sources, mediums, content, terms, daily trend, top landing pages</td>
+  <td><code>campaign_id</code> (required), <code>days</code> (1–90, default 30)</td>
+</tr>
+<tr>
+  <td><code>analytics_experiments</code></td>
+  <td>A/B experiment results with conversion rates and statistical significance</td>
+  <td><code>experiment_id</code> (optional)</td>
+</tr>
+<tr>
+  <td><code>analytics_campaign_events</code></td>
+  <td>Campaign-to-event correlation: for each campaign (and organic traffic), shows visitors, event-triggering visitors, event rate, events per visitor, and event type breakdown. Use to measure whether campaign visitors adopt features or convert.</td>
+  <td><code>site_id</code> (required), <code>days</code> (1–90, default 30), <code>event_type</code> (optional filter)</td>
+</tr>
+<tr>
+  <td><code>analytics_dashboard</code></td>
+  <td>Live dashboard: active visitors, hourly/daily trends, recent visitors and events</td>
+  <td><code>site_id</code> (required)</td>
+</tr>
+<tr>
+  <td><code>list_campaigns</code></td>
+  <td>List all registered UTM campaigns with IDs, names, utm_campaign values, site IDs, and statuses</td>
+  <td><em>none</em></td>
+</tr>
+<tr>
+  <td><code>list_experiments</code></td>
+  <td>List all A/B experiments with IDs, names, statuses, metric event types, and variant definitions</td>
+  <td><em>none</em></td>
+</tr>
+</table>
+
+<p>All 9 tools are read-only and return JSON. The server only calls <code>GET</code> endpoints — it cannot create, modify, or delete any data.</p>
+
+<hr>
+
+<h2>Client Setup Reference</h2>
+
+<h3>Claude Code</h3>
+<p>Auto-discovered via <code>.claude/settings.json</code> in the repository — edit <code>ECHELON_URL</code> there to point at your instance.</p>
+
+<h3>Claude Desktop</h3>
+<p>See the config paths and JSON snippet in the <a href="#how-to-use">Setup</a> section above.</p>
+
+<h3>Other MCP Clients</h3>
+<p>Any MCP-compatible client can connect via stdio transport. Set <code>ECHELON_URL</code> (and optionally <code>ECHELON_SECRET</code>) as environment variables.</p>
+
+<hr>
+
+<h2>Architecture</h2>
+
+<h3>API-Backed</h3>
+<p>The MCP server calls the Echelon REST API over HTTP — it never touches the database directly. This means:</p>
+<ul>
+  <li>Works with any instance (local, remote, Docker, cloud)</li>
+  <li>Respects <code>PUBLIC_MODE</code>, anonymization, and access controls</li>
+  <li>No local database file needed</li>
+  <li>Same data as the admin dashboard — always live</li>
+</ul>
+
+<h3>Read-Only by Design</h3>
+<p>The server only calls <code>GET</code> endpoints. It never sends <code>POST</code>, <code>PATCH</code>, or <code>DELETE</code> requests — it cannot create, modify, or delete any data even if the token has write privileges. This is a deliberate constraint to maintain data authenticity while learning MCP usage patterns. Write tools may be added in a future version.</p>
+
+<h3>Transport</h3>
+<p>Uses stdio transport (JSON-RPC over stdin/stdout). Logging goes to stderr to avoid interfering with the protocol. Compatible with any MCP client that supports stdio.</p>
+
+<h3>Dependencies</h3>
+<ul>
+  <li><code>@modelcontextprotocol/sdk</code> — official MCP SDK</li>
+  <li><code>zod</code> — parameter validation</li>
+</ul>
+
+<hr>
+
+<h2>Configuration</h2>
+<table>
+<tr><th>Variable</th><th>Required</th><th>Description</th></tr>
+<tr><td><code>ECHELON_URL</code></td><td>Yes</td><td>Base URL of the Echelon Analytics instance (e.g. <code>https://ea.islets.app</code>)</td></tr>
+<tr><td><code>ECHELON_SECRET</code></td><td>No</td><td>Bearer token for authenticated API access. Not needed for <code>PUBLIC_MODE</code> instances.</td></tr>
+</table>
+
+<p class="seal-tip">🤖 "The MCP server calls the same REST API as the admin dashboard — same data, same filters, same anonymization. Ask your AI agent 'how's my site doing?' and it gets live results." -<span class="seal">🦭</span></p>
+
+<h2>Database Portability</h2>
+<p>The MCP server queries your analytics through the REST API, and all that data lives in a <strong>single SQLite file</strong>. Copy <code>echelon.db</code> to another machine, start an Echelon instance pointing at it, and query it with any MCP client. Your analytics travel with you.</p>
+<p>See <a href="portable-data.html">Portable Data</a> for details on the database schema, example SQL queries, and data lifecycle.</p>
+
+<hr>
+<div class="doc-nav">
+  <a href="installation.html">Installation</a>
+  <a href="features.html">Features</a>
+  <a href="api.html">API Reference</a>
+  <a href="bot-defense.html">Bot Defense</a>
+  <a href="configuration.html">Configuration</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="portable-data.html">Portable Data</a>
+  <a href="telemetry.html">Telemetry</a>
+  <a href="why-ea.html">Why ea.js?</a>
+</div>
+</main>
+
+<footer class="footer">
+  <div class="quote">🛢️ "Data er den nye oljen!" -🦭</div>
+  <div class="links">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen — <a href="https://github.com/janit/ea">GitHub</a></div>
+</footer>
+
+<script>(function(){var h=document.querySelector(".site-header");if(!h)return;var inner=h.querySelector(".site-header-inner");function check(){h.removeAttribute("data-collapsed");h.classList.remove("nav-open");if(inner.scrollWidth>inner.clientWidth+2)h.setAttribute("data-collapsed","");}window.addEventListener("resize",check);check();h.style.visibility="";})()</script>
+</body>
+</html>

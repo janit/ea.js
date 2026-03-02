@@ -6,6 +6,7 @@ import {
   constantTimeEquals,
   VERSION,
 } from "../../lib/config.ts";
+import { DEFAULT_THEME } from "../../lib/themes.ts";
 import { verifyPassword } from "../../lib/auth.ts";
 import { createSession } from "../../lib/session.ts";
 import { getClientIp } from "../../lib/ip.ts";
@@ -78,15 +79,14 @@ export const handler = define.handlers({
     const username = (form.get("username") as string) ?? "";
     const password = (form.get("password") as string) ?? "";
 
-    if (
-      constantTimeEquals(username, AUTH_USERNAME) &&
-      await verifyPassword(password, AUTH_PASSWORD_HASH)
-    ) {
+    const usernameOk = constantTimeEquals(username, AUTH_USERNAME);
+    const passwordOk = await verifyPassword(password, AUTH_PASSWORD_HASH);
+    if (usernameOk && passwordOk) {
       const { token } = createSession(username);
       const headers = new Headers({ location: "/admin" });
       headers.append(
         "set-cookie",
-        `echelon_session=${token}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=86400`,
+        `echelon_session=${token}; Path=/; HttpOnly; SameSite=Strict; Secure; Max-Age=86400`,
       );
       return new Response(null, { status: 303, headers });
     }
@@ -111,14 +111,31 @@ export default define.page<typeof handler>(function LoginPage({ state }) {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Login — Echelon Analytics</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <link rel="icon" href="/favicon.ico" />
         <link rel="stylesheet" href="/styles.css" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              `document.documentElement.dataset.theme=(document.cookie.match(/(?:^|;\\s*)echelon_theme=(\\w+)/)||[])[1]||"${DEFAULT_THEME}"`,
+          }}
+        />
       </head>
       <body class="flex items-center justify-center min-h-screen">
         <div
-          class="w-full max-w-sm p-6 border border-[#1a3a1a]"
-          style="background:#111"
+          class="w-full max-w-sm p-6 border border-[var(--ea-border)] border-t-[3px] border-t-[var(--ea-accent)]"
+          style="background:var(--ea-surface)"
         >
-          <h1 class="text-lg font-semibold text-[#33ff33] mb-4">
+          <div class="flex justify-center mb-4">
+            <img
+              src="/img/mmm.webp"
+              alt="Mette-Maya-Marit: Echelon Analytics Seal of Approval (project mascot)"
+              width="200"
+              height="200"
+              class="opacity-80"
+            />
+          </div>
+          <h1 class="text-lg font-semibold text-[var(--ea-primary)] mb-4 text-center">
             <a
               href="https://ea.js.org/"
               target="_blank"
@@ -130,53 +147,61 @@ export default define.page<typeof handler>(function LoginPage({ state }) {
           </h1>
           {data.rateLimited && (
             <p
-              class="text-sm text-[#ff3333] mb-3 border border-[#661111] px-3 py-1.5"
-              style="background:#1a0a0a"
+              class="text-sm text-[var(--ea-danger)] mb-3 border border-[var(--ea-danger-border)] px-3 py-1.5"
+              style="background:var(--ea-danger-bg)"
             >
               RATE LIMITED — Too many failed attempts. Try again later.
             </p>
           )}
           {data.error && (
             <p
-              class="text-sm text-[#ff3333] mb-3 border border-[#661111] px-3 py-1.5"
-              style="background:#1a0a0a"
+              class="text-sm text-[var(--ea-danger)] mb-3 border border-[var(--ea-danger-border)] px-3 py-1.5"
+              style="background:var(--ea-danger-bg)"
             >
               ACCESS DENIED — Invalid credentials.
             </p>
           )}
           <form method="POST">
-            <label class="block text-sm text-[#1a9a1a] mb-1">username</label>
+            <label class="block text-sm text-[var(--ea-text)] mb-1">
+              username
+            </label>
             <input
               type="text"
               name="username"
               required
-              class="w-full border border-[#1a3a1a] px-3 py-2 text-sm mb-3 bg-[#0a0a0a] text-[#33ff33] focus:outline-none focus:border-[#33ff33]"
+              class="w-full border border-[var(--ea-border)] px-3 py-2 text-sm mb-3 bg-[var(--ea-bg)] text-[var(--ea-primary)] focus:outline-none focus:border-[var(--ea-primary)]"
             />
-            <label class="block text-sm text-[#1a9a1a] mb-1">password</label>
+            <label class="block text-sm text-[var(--ea-text)] mb-1">
+              password
+            </label>
             <input
               type="password"
               name="password"
               required
-              class="w-full border border-[#1a3a1a] px-3 py-2 text-sm mb-4 bg-[#0a0a0a] text-[#33ff33] focus:outline-none focus:border-[#33ff33]"
+              class="w-full border border-[var(--ea-border)] px-3 py-2 text-sm mb-4 bg-[var(--ea-bg)] text-[var(--ea-primary)] focus:outline-none focus:border-[var(--ea-primary)]"
             />
             <button
               type="submit"
-              class="w-full border border-[#33ff33] text-[#33ff33] px-4 py-2 text-sm hover:bg-[#33ff33] hover:text-[#0a0a0a]"
+              class="w-full border border-[var(--ea-primary)] text-[var(--ea-primary)] px-4 py-2 text-sm hover:bg-[var(--ea-primary)] hover:text-[var(--ea-bg)]"
             >
               &gt; authenticate
             </button>
           </form>
-          <p class="mt-4 text-xs text-[#1a5a1a] text-center">
-            <a
-              href="https://ea.js.org/"
-              target="_blank"
-              rel="noopener"
-              class="hover:text-[#33ff33]"
-            >
-              Echelon Analytics
-            </a>{" "}
-            {data.version}
-          </p>
+          <div class="mt-4 text-xs text-[var(--ea-muted)] text-center">
+            <div class="text-sm">🛢️ "Data er den nye oljen!" -🦭</div>
+            <hr class="my-2 border-[var(--ea-border)]" />
+            <div>
+              <a
+                href="https://ea.js.org/"
+                target="_blank"
+                rel="noopener"
+                class="hover:text-[var(--ea-primary)]"
+              >
+                Echelon Analytics 🩺
+              </a>{" "}
+              {data.version}
+            </div>
+          </div>
         </div>
       </body>
     </html>

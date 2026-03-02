@@ -4,42 +4,35 @@ import { AdminNav } from "../../components/AdminNav.tsx";
 import { getOverview } from "../../lib/stats.ts";
 import { getLiveStats } from "../../lib/admin-stats.ts";
 import TrendChart from "../../islands/TrendChart.tsx";
+import DashboardLive from "../../islands/DashboardLive.tsx";
 
 export const handler = define.handlers({
   async GET(ctx) {
     const siteId = ctx.state.siteId;
-    const days = Math.min(
-      parseInt(ctx.url.searchParams.get("days") ?? "30"),
-      365,
-    );
+    const days = ctx.state.days;
     const data = await getOverview(ctx.state.db, siteId, days);
     const liveStats = await getLiveStats(ctx.state.db);
-    const sites = await ctx.state.db.query<{ site_id: string }>(
-      `SELECT DISTINCT site_id FROM visitor_views ORDER BY site_id`,
-    );
-    const knownSites = sites.map((s: { site_id: string }) => s.site_id);
-    if (!knownSites.includes(siteId)) knownSites.unshift(siteId);
-    ctx.state.pageData = { data, siteId, days, liveStats, knownSites };
+    ctx.state.pageData = { data, days, liveStats };
     return page();
   },
 });
 
 export default define.page<typeof handler>(function Dashboard({ state }) {
-  const { data: stats, siteId, days, liveStats, knownSites } = state.pageData;
-
-  const dayOptions = [7, 14, 30, 60, 90, 180, 365];
+  const { data: stats, liveStats } = state.pageData;
 
   return (
     <AdminNav
       title="Dashboard"
       liveStats={liveStats}
-      siteSelector={{
-        knownSites,
-        siteId,
-        days,
-        dayOptions,
-      }}
+      siteId={state.siteId}
+      knownSites={state.knownSites}
+      days={state.days}
+      url={state.url}
+      telemetryState={state.telemetryState}
     >
+      {/* Live: Now + 60 min + 24h + Recent visitors/events */}
+      <DashboardLive siteId={state.siteId} />
+
       <div class="grid grid-cols-4 gap-3 mb-4">
         <div class="kpi-card">
           <div class="kpi-value">{stats.visits.toLocaleString()}</div>
@@ -66,41 +59,44 @@ export default define.page<typeof handler>(function Dashboard({ state }) {
       </div>
 
       {stats.daily_trend.length > 0 && (
-        <div class="bg-[#111] border border-[#1a3a1a] p-4 mb-4">
-          <h3 class="text-sm text-[#33ff33] mb-2">Daily Trend</h3>
+        <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] p-4 mb-4">
+          <h3 class="text-sm text-[var(--ea-primary)] mb-2">Daily Trend</h3>
           <TrendChart data={stats.daily_trend} />
         </div>
       )}
 
       <div class="grid grid-cols-2 gap-3">
-        <div class="bg-[#111] border border-[#1a3a1a] overflow-hidden">
-          <div class="px-4 py-3 border-b border-[#1a3a1a]">
-            <h3 class="text-sm text-[#33ff33]">Top Pages</h3>
+        <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
+          <div class="px-4 py-3 border-b border-[var(--ea-border)]">
+            <h3 class="text-sm text-[var(--ea-primary)]">Top Pages</h3>
           </div>
           <table class="w-full text-sm">
             <thead>
-              <tr class="border-b border-[#1a3a1a]">
-                <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <tr class="border-b border-[var(--ea-border)]">
+                <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                   Path
                 </th>
-                <th class="text-right px-4 py-2 text-xs text-[#1a5a1a]">
+                <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
                   Views
                 </th>
-                <th class="text-right px-4 py-2 text-xs text-[#1a5a1a]">
+                <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
                   Visitors
                 </th>
               </tr>
             </thead>
             <tbody>
               {stats.top_paths.slice(0, 10).map((p) => (
-                <tr key={p.path} class="border-b border-[#0d1a0d]">
-                  <td class="px-4 py-1.5 truncate max-w-[250px] text-[#1a9a1a]">
+                <tr
+                  key={p.path}
+                  class="border-b border-[var(--ea-surface-alt)]"
+                >
+                  <td class="px-4 py-1.5 truncate max-w-[250px] text-[var(--ea-text)]">
                     {p.path}
                   </td>
-                  <td class="px-4 py-1.5 text-right tabular-nums text-[#33ff33]">
+                  <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-primary)]">
                     {p.views}
                   </td>
-                  <td class="px-4 py-1.5 text-right tabular-nums text-[#1a9a1a]">
+                  <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-text)]">
                     {p.visitors}
                   </td>
                 </tr>
@@ -110,28 +106,31 @@ export default define.page<typeof handler>(function Dashboard({ state }) {
         </div>
 
         <div class="space-y-3">
-          <div class="bg-[#111] border border-[#1a3a1a] overflow-hidden">
-            <div class="px-4 py-3 border-b border-[#1a3a1a]">
-              <h3 class="text-sm text-[#33ff33]">Devices</h3>
+          <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
+            <div class="px-4 py-3 border-b border-[var(--ea-border)]">
+              <h3 class="text-sm text-[var(--ea-primary)]">Devices</h3>
             </div>
             <table class="w-full text-sm">
               <thead>
-                <tr class="border-b border-[#1a3a1a]">
-                  <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+                <tr class="border-b border-[var(--ea-border)]">
+                  <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                     Type
                   </th>
-                  <th class="text-right px-4 py-2 text-xs text-[#1a5a1a]">
+                  <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
                     Visits
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {stats.devices.map((d) => (
-                  <tr key={d.device_type} class="border-b border-[#0d1a0d]">
-                    <td class="px-4 py-1.5 text-[#1a9a1a]">
+                  <tr
+                    key={d.device_type}
+                    class="border-b border-[var(--ea-surface-alt)]"
+                  >
+                    <td class="px-4 py-1.5 text-[var(--ea-text)]">
                       {d.device_type}
                     </td>
-                    <td class="px-4 py-1.5 text-right tabular-nums text-[#33ff33]">
+                    <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-primary)]">
                       {d.visits}
                     </td>
                   </tr>
@@ -140,28 +139,31 @@ export default define.page<typeof handler>(function Dashboard({ state }) {
             </table>
           </div>
 
-          <div class="bg-[#111] border border-[#1a3a1a] overflow-hidden">
-            <div class="px-4 py-3 border-b border-[#1a3a1a]">
-              <h3 class="text-sm text-[#33ff33]">Countries</h3>
+          <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
+            <div class="px-4 py-3 border-b border-[var(--ea-border)]">
+              <h3 class="text-sm text-[var(--ea-primary)]">Countries</h3>
             </div>
             <table class="w-full text-sm">
               <thead>
-                <tr class="border-b border-[#1a3a1a]">
-                  <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+                <tr class="border-b border-[var(--ea-border)]">
+                  <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                     Code
                   </th>
-                  <th class="text-right px-4 py-2 text-xs text-[#1a5a1a]">
+                  <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
                     Visits
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {stats.countries.map((c) => (
-                  <tr key={c.country_code} class="border-b border-[#0d1a0d]">
-                    <td class="px-4 py-1.5 text-[#1a9a1a]">
+                  <tr
+                    key={c.country_code}
+                    class="border-b border-[var(--ea-surface-alt)]"
+                  >
+                    <td class="px-4 py-1.5 text-[var(--ea-text)]">
                       {c.country_code}
                     </td>
-                    <td class="px-4 py-1.5 text-right tabular-nums text-[#33ff33]">
+                    <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-primary)]">
                       {c.visits}
                     </td>
                   </tr>
@@ -173,28 +175,31 @@ export default define.page<typeof handler>(function Dashboard({ state }) {
       </div>
 
       <div class="mt-3">
-        <div class="bg-[#111] border border-[#1a3a1a] overflow-hidden">
-          <div class="px-4 py-3 border-b border-[#1a3a1a]">
-            <h3 class="text-sm text-[#33ff33]">Referrer Sources</h3>
+        <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
+          <div class="px-4 py-3 border-b border-[var(--ea-border)]">
+            <h3 class="text-sm text-[var(--ea-primary)]">Referrer Sources</h3>
           </div>
           <table class="w-full text-sm">
             <thead>
-              <tr class="border-b border-[#1a3a1a]">
-                <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <tr class="border-b border-[var(--ea-border)]">
+                <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                   Type
                 </th>
-                <th class="text-right px-4 py-2 text-xs text-[#1a5a1a]">
+                <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
                   Views
                 </th>
               </tr>
             </thead>
             <tbody>
               {stats.referrers.map((r) => (
-                <tr key={r.referrer_type} class="border-b border-[#0d1a0d]">
-                  <td class="px-4 py-1.5 text-[#1a9a1a]">
+                <tr
+                  key={r.referrer_type}
+                  class="border-b border-[var(--ea-surface-alt)]"
+                >
+                  <td class="px-4 py-1.5 text-[var(--ea-text)]">
                     {r.referrer_type}
                   </td>
-                  <td class="px-4 py-1.5 text-right tabular-nums text-[#33ff33]">
+                  <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-primary)]">
                     {r.views}
                   </td>
                 </tr>

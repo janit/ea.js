@@ -5,7 +5,7 @@
 // Sites embed: <script async src="https://echelon.example.com/ea.js" data-site="my-site"></script>
 
 import { generateChallenge, getWasmBase64 } from "./challenge.ts";
-import { COOKIE_CONSENT } from "./config.ts";
+import { COOKIE_CONSENT, TRUST_PROXY } from "./config.ts";
 import { getConsentCss } from "./consent-css.ts";
 
 const TRACKER_SOURCE = `(function(){
@@ -622,9 +622,10 @@ const SCRIPT_HEADERS = {
 
 export async function handleTracker(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  const proto = req.headers.get("x-forwarded-proto") ??
+  const proto = (TRUST_PROXY && req.headers.get("x-forwarded-proto")) ??
     url.protocol.replace(":", "");
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ??
+  const host = (TRUST_PROXY && req.headers.get("x-forwarded-host")) ??
+    req.headers.get("host") ??
     url.host;
   const origin = `${proto}://${host}`;
   const siteId = url.searchParams.get("s") ?? "default";
@@ -635,11 +636,20 @@ export async function handleTracker(req: Request): Promise<Response> {
     getWasmBase64(),
   ]);
 
+  // Escape all values for safe embedding in JS string literals.
+  // JSON.stringify handles quotes, backslashes, control chars, etc.
+  // .slice(1, -1) strips the outer quotes since they're already in the template.
+  // Arrow function replacers prevent $-pattern interpretation ($', $`, $&).
+  const safeOrigin = JSON.stringify(origin).slice(1, -1);
+  const safeChallenge = JSON.stringify(challenge).slice(1, -1);
+  const safeWasm = JSON.stringify(wasmB64).slice(1, -1);
+  const safeCss = JSON.stringify(consentCss).slice(1, -1);
+
   const script = minifiedSource
-    .replace("__ECHELON_ORIGIN__", origin)
-    .replace("__ECHELON_CHALLENGE__", challenge)
-    .replace("__ECHELON_WASM_B64__", wasmB64)
-    .replace("__ECHELON_CONSENT_CSS__", consentCss.replace(/[\\`$]/g, "\\$&"));
+    .replace("__ECHELON_ORIGIN__", () => safeOrigin)
+    .replace("__ECHELON_CHALLENGE__", () => safeChallenge)
+    .replace("__ECHELON_WASM_B64__", () => safeWasm)
+    .replace("__ECHELON_CONSENT_CSS__", () => safeCss);
 
   return new Response(script, { headers: SCRIPT_HEADERS });
 }

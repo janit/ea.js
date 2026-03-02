@@ -1,6 +1,6 @@
 import { useSignal } from "@preact/signals";
 
-export default function CampaignForm() {
+export default function CampaignForm({ readOnly }: { readOnly?: boolean }) {
   const id = useSignal("");
   const name = useSignal("");
   const utmCampaign = useSignal("");
@@ -8,6 +8,8 @@ export default function CampaignForm() {
   const error = useSignal<string | null>(null);
   const success = useSignal<string | null>(null);
   const loading = useSignal(false);
+
+  if (readOnly) return null;
 
   async function submit(e: Event) {
     e.preventDefault();
@@ -49,22 +51,22 @@ export default function CampaignForm() {
   }
 
   const inputCls =
-    "border border-[#1a3a1a] bg-[#0a0a0a] text-[#33ff33] px-2 py-1.5 text-sm w-full focus:border-[#33ff33] outline-none";
+    "border border-[var(--ea-border)] bg-[var(--ea-bg)] text-[var(--ea-primary)] px-2 py-1.5 text-sm w-full focus:border-[var(--ea-primary)] outline-none";
 
   return (
     <form onSubmit={submit}>
       {error.value && (
         <div
-          class="border border-[#661111] text-[#ff3333] px-3 py-1.5 text-sm mb-2"
-          style="background:#1a0a0a"
+          class="border border-[var(--ea-danger-border)] text-[var(--ea-danger)] px-3 py-1.5 text-sm mb-2"
+          style="background:var(--ea-danger-bg)"
         >
           {error.value}
         </div>
       )}
       {success.value && (
         <div
-          class="border border-[#1a3a1a] text-[#33ff33] px-3 py-1.5 text-sm mb-2"
-          style="background:#0d1a0d"
+          class="border border-[var(--ea-border)] text-[var(--ea-primary)] px-3 py-1.5 text-sm mb-2"
+          style="background:var(--ea-surface-alt)"
         >
           {success.value}
         </div>
@@ -101,7 +103,7 @@ export default function CampaignForm() {
 
       <button
         type="submit"
-        class="px-3 py-1.5 text-xs border border-[#33ff33] text-[#33ff33] hover:bg-[#33ff33] hover:text-[#0a0a0a] disabled:opacity-50"
+        class="px-3 py-1.5 text-xs border border-[var(--ea-primary)] text-[var(--ea-primary)] hover:bg-[var(--ea-primary)] hover:text-[var(--ea-bg)] disabled:opacity-50"
         disabled={loading.value}
       >
         {loading.value ? "creating..." : "> create campaign"}

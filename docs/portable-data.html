@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portable Data — Echelon Analytics</title>
+<meta name="description" content="Echelon Analytics stores all data in a single SQLite file. Download it, query it with any tool, build your own dashboards. Full schema reference and example queries.">
+<link rel="canonical" href="https://ea.js.org/portable-data.html">
+<link rel="icon" href="favicon.ico">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Echelon Analytics">
+<meta property="og:title" content="Portable Data — Echelon Analytics">
+<meta property="og:description" content="Your analytics data lives in a single SQLite file. Download it, query it, own it.">
+<meta property="og:url" content="https://ea.js.org/portable-data.html">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Portable Data — Echelon Analytics">
+<meta name="twitter:description" content="Your analytics data lives in a single SQLite file. Download it, query it, own it.">
+<link rel="stylesheet" href="css/style.css">
+<script async src="https://ea.islets.app/ea.js" data-site="echelon-analytics" data-cookie></script>
+</head>
+<body>
+
+<header class="site-header" style="visibility:hidden">
+  <div class="site-header-inner">
+    <a href="index.html" class="logo">Echelon <span>🩺</span></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="this.closest('.site-header').classList.toggle('nav-open')">🍔</button>
+    <a href="installation.html">Installation</a>
+    <a href="features.html">Features</a>
+    <a href="api.html">API</a>
+    <a href="bot-defense.html">Bot Defense</a>
+    <a href="configuration.html">Config</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="portable-data.html">Portable Data</a>
+    <a href="mcp.html">MCP</a>
+    <a href="telemetry.html">Telemetry</a>
+    <a href="why-ea.html">Why ea.js?</a>
+  </div>
+</header>
+
+<nav><a href="index.html">Echelon 🩺</a> <span class="sep">/</span> Portable Data</nav>
+<main>
+<h1>Portable Data</h1>
+<p class="tagline">One file. Your data. Any tool.</p>
+
+<hr>
+
+<div class="card">
+  <h3>The Idea</h3>
+  <p>Echelon Analytics stores <strong>everything</strong> in a single SQLite database file. There is no proprietary data format, no vendor API you must call, no export step. The file on disk <em>is</em> your data.</p>
+  <p>You can copy it to your laptop, open it in any SQLite client, run SQL queries, build reports in Python or R, pipe it into a spreadsheet, feed it to an LLM, or back it up with <code>cp</code>. If you stop using Echelon tomorrow, your data stays exactly where it is, in an open format readable by thousands of tools.</p>
+</div>
+
+<h2>Getting the File</h2>
+<p>The database lives at the path set by <code>ECHELON_DB_PATH</code> (default: <code>./echelon.db</code>). In Docker deployments, it's at <code>/app/data/echelon.db</code> inside the container, mounted from the host's <code>data/</code> directory.</p>
+
+<h3>Download a Copy</h3>
+<pre># From the Docker host — copy the live database
+cp data/echelon.db ~/echelon-backup.db
+
+# From a remote server
+scp user@server:~/ea-private/data/echelon.db .
+
+# Safe copy while the app is running (SQLite WAL checkpoint)
+sqlite3 data/echelon.db "PRAGMA wal_checkpoint(TRUNCATE);"
+cp data/echelon.db ~/echelon-snapshot.db</pre>
+
+<p>SQLite in WAL mode is safe to copy while the application is running. For a fully consistent snapshot, run the checkpoint command first to flush the write-ahead log into the main database file.</p>
+
+<h3>Open It Anywhere</h3>
+<pre># Command-line
+sqlite3 echelon.db
+
+# Python
+import sqlite3
+conn = sqlite3.connect("echelon.db")
+
+# R
+library(RSQLite)
+con &lt;- dbConnect(SQLite(), "echelon.db")
+
+# DuckDB (for analytics queries)
+duckdb -c "ATTACH 'echelon.db' AS ea (TYPE sqlite)"
+
+# Any GUI: DB Browser for SQLite, TablePlus, DBeaver, DataGrip...</pre>
+
+<hr>
+
+<p class="seal-tip">🦆❤️🦭 "Did you know DuckDB can attach your SQLite database directly and run analytics queries significantly faster? Great for large datasets — no ETL step needed."</p>
+
+<h2>Database Design</h2>
+<p>The schema is intentionally simple. Nine tables, no joins required for basic queries, no surrogate keys you need to look up. Every timestamp is ISO 8601 UTC. Every ID is human-readable text.</p>
+
+<h3>Design Principles</h3>
+<ul>
+  <li><strong>Raw data first.</strong> Individual pageviews and events are stored as-is. Nothing is aggregated or discarded on write (unless bot score exceeds the discard threshold).</li>
+  <li><strong>Rollups for speed.</strong> Daily aggregates are pre-computed for fast dashboard queries, but you can always go back to the raw data.</li>
+  <li><strong>Bot scores preserved.</strong> Every record carries its bot score (0&ndash;100) so you can filter or re-analyze with your own thresholds.</li>
+  <li><strong>UTC everywhere.</strong> All <code>created_at</code> timestamps use <code>strftime('%Y-%m-%dT%H:%M:%fZ','now')</code> — ISO 8601, UTC, millisecond precision.</li>
+  <li><strong>Text IDs.</strong> Visitor IDs, session IDs, experiment IDs are all human-readable text. No opaque integer foreign keys to chase.</li>
+</ul>
+
+<hr>
+
+<h2>Table Reference</h2>
+
+<h3>visitor_views</h3>
+<p>Every pageview recorded by the tracker. This is the primary analytics table — one row per page load.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>id</code></td><td>INTEGER</td><td>Auto-incrementing primary key</td></tr>
+<tr><td><code>visitor_id</code></td><td>TEXT</td><td>Visitor identifier (HMAC hash or cookie value)</td></tr>
+<tr><td><code>path</code></td><td>TEXT</td><td>Page path (e.g. <code>/about</code>, <code>/blog/my-post</code>)</td></tr>
+<tr><td><code>site_id</code></td><td>TEXT</td><td>Site identifier from <code>data-site</code> attribute</td></tr>
+<tr><td><code>session_id</code></td><td>TEXT</td><td>Browser session (from sessionStorage)</td></tr>
+<tr><td><code>interaction_ms</code></td><td>INTEGER</td><td>Milliseconds of active interaction (pointer, scroll, keyboard)</td></tr>
+<tr><td><code>screen_width</code></td><td>INTEGER</td><td>Screen width in pixels</td></tr>
+<tr><td><code>screen_height</code></td><td>INTEGER</td><td>Screen height in pixels</td></tr>
+<tr><td><code>device_type</code></td><td>TEXT</td><td><code>desktop</code>, <code>mobile</code>, or <code>tablet</code></td></tr>
+<tr><td><code>os_name</code></td><td>TEXT</td><td>Operating system (e.g. <code>Windows</code>, <code>iOS</code>, <code>Android</code>)</td></tr>
+<tr><td><code>country_code</code></td><td>TEXT</td><td>ISO 3166-1 alpha-2 country code (from geo headers)</td></tr>
+<tr><td><code>is_returning</code></td><td>INTEGER</td><td><code>1</code> if visitor seen before, <code>0</code> if new</td></tr>
+<tr><td><code>referrer</code></td><td>TEXT</td><td>Full referrer URL (nullable)</td></tr>
+<tr><td><code>referrer_type</code></td><td>TEXT</td><td>Classified referrer: <code>direct</code>, <code>search</code>, <code>social</code>, <code>other</code></td></tr>
+<tr><td><code>bot_score</code></td><td>INTEGER</td><td>Bot likelihood 0&ndash;100. Scores &ge;50 are suspect.</td></tr>
+<tr><td><code>is_pwa</code></td><td>INTEGER</td><td><code>1</code> if loaded as a Progressive Web App</td></tr>
+<tr><td><code>utm_source</code></td><td>TEXT</td><td>UTM source parameter</td></tr>
+<tr><td><code>utm_medium</code></td><td>TEXT</td><td>UTM medium parameter</td></tr>
+<tr><td><code>utm_campaign</code></td><td>TEXT</td><td>UTM campaign parameter</td></tr>
+<tr><td><code>utm_content</code></td><td>TEXT</td><td>UTM content parameter</td></tr>
+<tr><td><code>utm_term</code></td><td>TEXT</td><td>UTM term parameter</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>ISO 8601 UTC timestamp with milliseconds</td></tr>
+</table>
+
+<p><strong>Indexes:</strong> visitor_id, (site_id, created_at), path, country_code, device_type, (created_at, bot_score), utm_campaign, (utm_campaign, site_id, created_at WHERE utm_campaign IS NOT NULL).</p>
+
+<h3>visitor_views_daily</h3>
+<p>Pre-computed daily aggregates. Excludes bot traffic (score &ge;50) and manually excluded visitors. Used by the dashboard for fast date-range queries.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>site_id</code></td><td>TEXT</td><td>Site identifier</td></tr>
+<tr><td><code>date</code></td><td>TEXT</td><td>Date string <code>YYYY-MM-DD</code></td></tr>
+<tr><td><code>device_type</code></td><td>TEXT</td><td>Device category</td></tr>
+<tr><td><code>country_code</code></td><td>TEXT</td><td>Country code</td></tr>
+<tr><td><code>is_returning</code></td><td>INTEGER</td><td>Returning visitor flag</td></tr>
+<tr><td><code>visits</code></td><td>INTEGER</td><td>Total pageview count</td></tr>
+<tr><td><code>unique_visitors</code></td><td>INTEGER</td><td>Distinct visitor count</td></tr>
+<tr><td><code>avg_interaction_ms</code></td><td>INTEGER</td><td>Average interaction time</td></tr>
+</table>
+<p><strong>Primary key:</strong> (site_id, date, device_type, country_code, is_returning). This composite key makes rollups idempotent — re-running the aggregation for the same day safely overwrites.</p>
+
+<h3>semantic_events</h3>
+<p>Behavioral and custom events: clicks, scroll depth, bounces, form submissions, A/B experiment conversions, and any events sent via the JavaScript API.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>id</code></td><td>INTEGER</td><td>Auto-incrementing primary key</td></tr>
+<tr><td><code>event_type</code></td><td>TEXT</td><td>Event name (e.g. <code>click</code>, <code>scroll_depth</code>, <code>purchase</code>)</td></tr>
+<tr><td><code>site_id</code></td><td>TEXT</td><td>Site identifier</td></tr>
+<tr><td><code>session_id</code></td><td>TEXT</td><td>Browser session</td></tr>
+<tr><td><code>visitor_id</code></td><td>TEXT</td><td>Visitor identifier</td></tr>
+<tr><td><code>data</code></td><td>TEXT</td><td>JSON payload with event-specific data</td></tr>
+<tr><td><code>experiment_id</code></td><td>TEXT</td><td>A/B experiment ID (if applicable)</td></tr>
+<tr><td><code>variant_id</code></td><td>TEXT</td><td>Experiment variant (if applicable)</td></tr>
+<tr><td><code>utm_campaign</code></td><td>TEXT</td><td>UTM campaign parameter</td></tr>
+<tr><td><code>device_type</code></td><td>TEXT</td><td>Device category</td></tr>
+<tr><td><code>referrer</code></td><td>TEXT</td><td>Referrer URL</td></tr>
+<tr><td><code>hour</code></td><td>INTEGER</td><td>Hour of day (0&ndash;23 UTC)</td></tr>
+<tr><td><code>month</code></td><td>INTEGER</td><td>Month (1&ndash;12)</td></tr>
+<tr><td><code>day_of_week</code></td><td>INTEGER</td><td>Day of week (0=Sunday, 6=Saturday)</td></tr>
+<tr><td><code>is_returning</code></td><td>INTEGER</td><td>Returning visitor flag</td></tr>
+<tr><td><code>bot_score</code></td><td>INTEGER</td><td>Bot likelihood 0&ndash;100</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>ISO 8601 UTC timestamp</td></tr>
+</table>
+<p><strong>Indexes:</strong> (site_id, event_type, created_at), visitor_id, (created_at, bot_score), (experiment_id, variant_id), (utm_campaign, site_id WHERE utm_campaign IS NOT NULL).</p>
+
+<h3>excluded_visitors</h3>
+<p>Visitor IDs manually flagged for exclusion from rollups and dashboards.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>visitor_id</code></td><td>TEXT</td><td>Primary key — the visitor to exclude</td></tr>
+<tr><td><code>label</code></td><td>TEXT</td><td>Optional human-readable label</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>When the exclusion was added</td></tr>
+</table>
+
+<h3>experiments</h3>
+<p>A/B experiment definitions. Each experiment targets a specific event type as its success metric.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>experiment_id</code></td><td>TEXT</td><td>Primary key — unique experiment identifier</td></tr>
+<tr><td><code>name</code></td><td>TEXT</td><td>Human-readable name</td></tr>
+<tr><td><code>description</code></td><td>TEXT</td><td>What the experiment tests</td></tr>
+<tr><td><code>status</code></td><td>TEXT</td><td><code>draft</code>, <code>active</code>, <code>paused</code>, <code>completed</code>, or <code>archived</code></td></tr>
+<tr><td><code>metric_event_type</code></td><td>TEXT</td><td>The event_type that counts as a conversion</td></tr>
+<tr><td><code>allocation_percent</code></td><td>INTEGER</td><td>% of traffic enrolled (1&ndash;100)</td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>Creation timestamp</td></tr>
+<tr><td><code>started_at</code></td><td>TEXT</td><td>When the experiment went active</td></tr>
+<tr><td><code>ended_at</code></td><td>TEXT</td><td>When the experiment completed</td></tr>
+</table>
+
+<h3>experiment_variants</h3>
+<p>Variants within an experiment. Each has a weight for traffic allocation and an optional JSON config payload.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>experiment_id</code></td><td>TEXT</td><td>References <code>experiments.experiment_id</code></td></tr>
+<tr><td><code>variant_id</code></td><td>TEXT</td><td>Variant identifier</td></tr>
+<tr><td><code>name</code></td><td>TEXT</td><td>Variant name (e.g. "Control", "Blue Button")</td></tr>
+<tr><td><code>weight</code></td><td>INTEGER</td><td>Traffic weight (higher = more traffic)</td></tr>
+<tr><td><code>is_control</code></td><td>INTEGER</td><td><code>1</code> for the control group</td></tr>
+<tr><td><code>config</code></td><td>TEXT</td><td>Optional JSON configuration for the variant</td></tr>
+</table>
+<p><strong>Primary key:</strong> (experiment_id, variant_id). Foreign key cascades deletes from experiments.</p>
+
+<h3>utm_campaigns</h3>
+<p>Registered marketing campaigns for the campaign dashboard.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>id</code></td><td>TEXT</td><td>Primary key — campaign ID</td></tr>
+<tr><td><code>name</code></td><td>TEXT</td><td>Display name</td></tr>
+<tr><td><code>utm_campaign</code></td><td>TEXT</td><td>Matching utm_campaign value from URLs</td></tr>
+<tr><td><code>site_id</code></td><td>TEXT</td><td>Which site this campaign belongs to</td></tr>
+<tr><td><code>status</code></td><td>TEXT</td><td><code>active</code>, <code>paused</code>, or <code>archived</code></td></tr>
+<tr><td><code>created_at</code></td><td>TEXT</td><td>Creation timestamp</td></tr>
+</table>
+<p><strong>Unique constraint:</strong> (utm_campaign, site_id) — one campaign per site per UTM value.</p>
+
+<h3>site_settings</h3>
+<p>Per-site configuration, currently used for custom consent banner CSS.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>site_id</code></td><td>TEXT</td><td>Primary key — site identifier</td></tr>
+<tr><td><code>consent_css</code></td><td>TEXT</td><td>Custom CSS for the cookie consent banner</td></tr>
+<tr><td><code>updated_at</code></td><td>TEXT</td><td>Last update timestamp</td></tr>
+</table>
+
+<h3>perf_metrics</h3>
+<p>Performance benchmarks recorded by CI/CD or manual runs.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>id</code></td><td>INTEGER</td><td>Auto-incrementing primary key</td></tr>
+<tr><td><code>recorded_at</code></td><td>TEXT</td><td>When the metric was recorded</td></tr>
+<tr><td><code>commit_hash</code></td><td>TEXT</td><td>Git commit (for tracing regressions)</td></tr>
+<tr><td><code>branch</code></td><td>TEXT</td><td>Git branch</td></tr>
+<tr><td><code>category</code></td><td>TEXT</td><td>Metric category (e.g. <code>latency</code>, <code>throughput</code>)</td></tr>
+<tr><td><code>metric</code></td><td>TEXT</td><td>Metric name (e.g. <code>p99_response_ms</code>)</td></tr>
+<tr><td><code>value</code></td><td>REAL</td><td>Numeric value</td></tr>
+<tr><td><code>unit</code></td><td>TEXT</td><td>Unit of measurement (e.g. <code>ms</code>, <code>rps</code>)</td></tr>
+<tr><td><code>metadata</code></td><td>TEXT</td><td>Optional JSON metadata</td></tr>
+</table>
+
+<h3>maintenance_log</h3>
+<p>Tracks daily rollup and purge operations.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>date</code></td><td>TEXT</td><td>Primary key — the date being maintained</td></tr>
+<tr><td><code>status</code></td><td>TEXT</td><td><code>started</code> or <code>completed</code></td></tr>
+<tr><td><code>rollup_rows</code></td><td>INTEGER</td><td>Rows inserted into daily rollup</td></tr>
+<tr><td><code>purge_views</code></td><td>INTEGER</td><td>Pageview rows deleted</td></tr>
+<tr><td><code>purge_events</code></td><td>INTEGER</td><td>Event rows deleted</td></tr>
+<tr><td><code>started_at</code></td><td>TEXT</td><td>When maintenance began</td></tr>
+<tr><td><code>completed_at</code></td><td>TEXT</td><td>When maintenance finished</td></tr>
+</table>
+
+<hr>
+
+<h2>Example Queries</h2>
+<p>Copy-paste these into <code>sqlite3</code>, DBeaver, a Python notebook, or any SQL tool.</p>
+
+<h3>Pageviews per day (human traffic only)</h3>
+<pre>SELECT date(created_at) AS day, COUNT(*) AS views
+FROM visitor_views
+WHERE bot_score &lt; 50
+GROUP BY day
+ORDER BY day DESC
+LIMIT 30;</pre>
+
+<h3>Top pages this week</h3>
+<pre>SELECT path, COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
+FROM visitor_views
+WHERE bot_score &lt; 50
+  AND created_at &gt;= date('now', '-7 days')
+GROUP BY path
+ORDER BY views DESC
+LIMIT 20;</pre>
+
+<h3>Unique visitors by country</h3>
+<pre>SELECT country_code, COUNT(DISTINCT visitor_id) AS visitors
+FROM visitor_views
+WHERE bot_score &lt; 50
+  AND created_at &gt;= date('now', '-30 days')
+GROUP BY country_code
+ORDER BY visitors DESC;</pre>
+
+<h3>Device breakdown</h3>
+<pre>SELECT device_type,
+       COUNT(*) AS views,
+       ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 1) AS pct
+FROM visitor_views
+WHERE bot_score &lt; 50
+  AND created_at &gt;= date('now', '-30 days')
+GROUP BY device_type
+ORDER BY views DESC;</pre>
+
+<h3>Average interaction time by page</h3>
+<pre>SELECT path,
+       COUNT(*) AS views,
+       ROUND(AVG(interaction_ms) / 1000.0, 1) AS avg_seconds
+FROM visitor_views
+WHERE bot_score &lt; 50
+  AND interaction_ms &gt; 0
+  AND created_at &gt;= date('now', '-30 days')
+GROUP BY path
+ORDER BY avg_seconds DESC
+LIMIT 20;</pre>
+
+<h3>Event type distribution</h3>
+<pre>SELECT event_type, COUNT(*) AS count
+FROM semantic_events
+WHERE bot_score &lt; 50
+  AND created_at &gt;= date('now', '-30 days')
+GROUP BY event_type
+ORDER BY count DESC;</pre>
+
+<h3>Returning vs new visitors</h3>
+<pre>SELECT
+  CASE is_returning WHEN 1 THEN 'returning' ELSE 'new' END AS type,
+  COUNT(DISTINCT visitor_id) AS visitors,
+  COUNT(*) AS pageviews
+FROM visitor_views
+WHERE bot_score &lt; 50
+  AND created_at &gt;= date('now', '-30 days')
+GROUP BY is_returning;</pre>
+
+<h3>UTM campaign performance</h3>
+<pre>SELECT utm_campaign,
+       COUNT(*) AS pageviews,
+       COUNT(DISTINCT visitor_id) AS visitors,
+       ROUND(AVG(interaction_ms) / 1000.0, 1) AS avg_seconds
+FROM visitor_views
+WHERE utm_campaign IS NOT NULL
+  AND bot_score &lt; 50
+GROUP BY utm_campaign
+ORDER BY pageviews DESC;</pre>
+
+<h3>Bot traffic analysis</h3>
+<pre>SELECT
+  CASE
+    WHEN bot_score &gt;= 50 THEN 'likely bot'
+    WHEN bot_score &gt;= 25 THEN 'suspect'
+    ELSE 'likely human'
+  END AS category,
+  COUNT(*) AS views,
+  ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 1) AS pct
+FROM visitor_views
+WHERE created_at &gt;= date('now', '-7 days')
+GROUP BY category
+ORDER BY views DESC;</pre>
+
+<h3>Experiment conversion rates</h3>
+<pre>SELECT e.name AS experiment,
+       se.variant_id,
+       COUNT(*) AS conversions,
+       COUNT(DISTINCT se.visitor_id) AS unique_converters
+FROM semantic_events se
+JOIN experiments e ON e.experiment_id = se.experiment_id
+WHERE se.event_type = e.metric_event_type
+GROUP BY e.name, se.variant_id
+ORDER BY e.name, se.variant_id;</pre>
+
+<h3>Hourly traffic pattern</h3>
+<pre>SELECT
+  CAST(strftime('%H', created_at) AS INTEGER) AS hour_utc,
+  COUNT(*) AS views
+FROM visitor_views
+WHERE bot_score &lt; 50
+  AND created_at &gt;= date('now', '-7 days')
+GROUP BY hour_utc
+ORDER BY hour_utc;</pre>
+
+<hr>
+
+<h2>Data Lifecycle</h2>
+<table>
+<tr><th>Stage</th><th>What happens</th><th>Retention</th></tr>
+<tr><td>Ingest</td><td>Pageviews and events buffered in memory, flushed to SQLite every 10&ndash;15 seconds</td><td>&mdash;</td></tr>
+<tr><td>Raw storage</td><td>Individual records in <code>visitor_views</code> and <code>semantic_events</code></td><td>90 days (configurable)</td></tr>
+<tr><td>Rollup</td><td>Daily aggregation into <code>visitor_views_daily</code>, excluding bots and excluded visitors</td><td>730 days</td></tr>
+<tr><td>Purge</td><td>Raw data older than retention period is deleted; <code>PRAGMA incremental_vacuum</code> reclaims space</td><td>&mdash;</td></tr>
+</table>
+
+<h2>SQLite Pragmas</h2>
+<p>Echelon configures these pragmas on startup:</p>
+<table>
+<tr><th>PRAGMA</th><th>Value</th><th>Effect</th></tr>
+<tr><td><code>journal_mode</code></td><td>WAL</td><td>Readers don't block writers. Safe to copy while running.</td></tr>
+<tr><td><code>synchronous</code></td><td>NORMAL</td><td>Fsync at checkpoints only. Balances speed and durability.</td></tr>
+<tr><td><code>busy_timeout</code></td><td>5000</td><td>Wait up to 5 seconds on lock contention before failing.</td></tr>
+<tr><td><code>foreign_keys</code></td><td>ON</td><td>Enforce referential integrity (experiment variants).</td></tr>
+</table>
+
+<h2>Tips</h2>
+<ul>
+  <li><strong>Always filter on <code>bot_score &lt; 50</code></strong> for human analytics. Omit it only when you want to analyze bot traffic.</li>
+  <li><strong>Use the rollup table</strong> (<code>visitor_views_daily</code>) for dashboards and long-range trends — it's pre-filtered and indexed for fast date-range queries.</li>
+  <li><strong>The <code>data</code> column</strong> in <code>semantic_events</code> is JSON. Use SQLite's <code>json_extract()</code> to query inside it: <code>json_extract(data, '$.amount')</code>.</li>
+  <li><strong>Timestamps are strings</strong> in ISO 8601 format. SQLite's <code>date()</code>, <code>time()</code>, and <code>strftime()</code> functions work directly on them.</li>
+  <li><strong>Back up regularly.</strong> It's just a file: <code>cp</code>, <code>rsync</code>, or your favorite backup tool.</li>
+  <li><strong>DuckDB</strong> can attach SQLite databases directly and run analytical queries significantly faster than SQLite for large datasets.</li>
+  <li><strong>AI agents</strong> can query your database directly using the <a href="mcp.html">MCP server</a> — copy the file to any machine, point <code>ECHELON_DB_PATH</code> at it, and ask questions in natural language.</li>
+</ul>
+
+<hr>
+<div class="doc-nav">
+  <a href="installation.html">Installation</a>
+  <a href="features.html">Features</a>
+  <a href="api.html">API Reference</a>
+  <a href="bot-defense.html">Bot Defense</a>
+  <a href="configuration.html">Configuration</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="mcp.html">MCP Server</a>
+  <a href="telemetry.html">Telemetry</a>
+  <a href="why-ea.html">Why ea.js?</a>
+</div>
+</main>
+
+<footer class="footer">
+  <div class="quote">🛢️ "Data er den nye oljen!" -🦭</div>
+  <div class="links">AGPL-3.0 — Copyright (C) 2026 Jani Tarvainen — <a href="https://github.com/janit/ea">GitHub</a></div>
+</footer>
+
+<script>(function(){var h=document.querySelector(".site-header");if(!h)return;var inner=h.querySelector(".site-header-inner");function check(){h.removeAttribute("data-collapsed");h.classList.remove("nav-open");if(inner.scrollWidth>inner.clientWidth+2)h.setAttribute("data-collapsed","");}window.addEventListener("resize",check);check();h.style.visibility="";})()</script>
+</body>
+</html>

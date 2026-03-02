@@ -42,6 +42,10 @@ export const SCHEMA_SQL = `
     ON visitor_views(utm_campaign, site_id, created_at)
     WHERE utm_campaign IS NOT NULL;
 
+  CREATE INDEX IF NOT EXISTS idx_vv_site_created_clean
+    ON visitor_views(site_id, created_at)
+    WHERE bot_score < 50;
+
   CREATE TABLE IF NOT EXISTS visitor_views_daily (
     site_id TEXT NOT NULL,
     date TEXT NOT NULL,
@@ -153,6 +157,12 @@ export const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS site_settings (
     site_id TEXT PRIMARY KEY,
     consent_css TEXT,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS instance_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
   );
 `;

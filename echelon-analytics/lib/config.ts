@@ -3,6 +3,7 @@
 export const VERSION = Deno.env.get("VERSION") ?? "dev";
 export const PORT = parseInt(Deno.env.get("ECHELON_PORT") ?? "1947");
 export const DB_PATH = Deno.env.get("ECHELON_DB_PATH") ?? "./echelon.db";
+// Empty string = no bearer auth configured. Middleware guards with `if (SECRET)`.
 export const SECRET = Deno.env.get("ECHELON_SECRET") ?? "";
 export const RETENTION_DAYS = parseInt(
   Deno.env.get("ECHELON_RETENTION_DAYS") ?? "90",
@@ -95,19 +96,26 @@ export const SITE_SUSPECT_COUNTRIES: Map<string, Set<string>> = (() => {
 export const AUTH_USERNAME = Deno.env.get("ECHELON_USERNAME") ?? "";
 export const AUTH_PASSWORD_HASH = Deno.env.get("ECHELON_PASSWORD_HASH") ?? "";
 
-/** Constant-time string comparison to prevent timing attacks. */
+/** Constant-time string comparison to prevent timing attacks.
+ *  Returns false immediately for different lengths (length is not
+ *  secret for API tokens). Uses Deno's native timingSafeEqual
+ *  for byte-level comparison, with a manual XOR fallback. */
 export function constantTimeEquals(a: string, b: string): boolean {
   const enc = new TextEncoder();
   const bufA = enc.encode(a);
   const bufB = enc.encode(b);
+
   if (bufA.byteLength !== bufB.byteLength) return false;
-  // Prefer Deno's native timingSafeEqual when available, fall back to manual XOR
+
+  // Prefer Deno's native timingSafeEqual when available
   const subtle = crypto.subtle as unknown as {
     timingSafeEqual?(a: BufferSource, b: BufferSource): boolean;
   };
   if (typeof subtle.timingSafeEqual === "function") {
     return subtle.timingSafeEqual(bufA, bufB);
   }
+
+  // Fallback: constant-time byte-by-byte XOR
   let diff = 0;
   for (let i = 0; i < bufA.byteLength; i++) {
     diff |= bufA[i] ^ bufB[i];
@@ -135,10 +143,50 @@ export const IGNORED_SITES: Set<string> = (() => {
 // Set to "true" when behind a trusted reverse proxy (Nginx, Caddy, etc.)
 export const TRUST_PROXY = Deno.env.get("ECHELON_TRUST_PROXY") === "true";
 
+// Live stats window — how many minutes the admin nav stats bar covers (default: 10).
+export const LIVE_STATS_MINUTES = parseInt(
+  Deno.env.get("ECHELON_LIVE_STATS_MINUTES") ?? "10",
+);
+
+// Graceful shutdown timeout (milliseconds). Increase for large databases.
+export const SHUTDOWN_TIMEOUT_MS = parseInt(
+  Deno.env.get("ECHELON_SHUTDOWN_TIMEOUT_MS") ?? "60000",
+);
+
+// Display timezone for admin UI timestamps (IANA timezone, e.g. "Europe/Oslo").
+// Data is always stored in UTC. This only affects how times render in the admin panel.
+// Default: "UTC"
+export const DISPLAY_TIMEZONE = Deno.env.get("ECHELON_DISPLAY_TIMEZONE") ??
+  "UTC";
+
 // Cookie consent banner — when true and data-cookie is set on the script tag,
 // a small consent banner is shown before setting the visitor cookie.
 // Set to "true" to enable. When false, data-cookie sets the cookie without asking.
 export const COOKIE_CONSENT = Deno.env.get("ECHELON_COOKIE_CONSENT") === "true";
+
+// Telemetry — opt-in anonymous admin usage data sent to the Echelon project.
+// "true" = force on, "false" = force off, unset = respect per-instance DB setting.
+export const TELEMETRY_OVERRIDE: "on" | "off" | null = (() => {
+  const raw = Deno.env.get("ECHELON_TELEMETRY");
+  if (raw === "true") return "on";
+  if (raw === "false") return "off";
+  return null;
+})();
+export const TELEMETRY_SITE_ID = "ea";
+export const TELEMETRY_ENDPOINT = "https://ea.islets.app";
+
+// Sites to anonymize before storage — comma-separated site IDs.
+// Records for these sites get HMAC-hashed visitor IDs, fictional countries, etc.
+export const ANONYMIZE_SITES: Set<string> = (() => {
+  const raw = Deno.env.get("ECHELON_ANONYMIZE_SITES") ?? "";
+  const sites = raw.split(",").map((s) => s.trim().toLowerCase()).filter(
+    Boolean,
+  );
+  return new Set(sites);
+})();
+
+// Public mode — disables admin auth requirement for public dashboards.
+export const PUBLIC_MODE = Deno.env.get("ECHELON_PUBLIC_MODE") === "true";
 
 // Explicit Cloudflare mode — only trust CF headers when enabled.
 // When false, cf-ray/cf-connecting-ip/cf-ipcountry/cf-bot-score headers are ignored.

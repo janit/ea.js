@@ -20,11 +20,13 @@ export const handler = define.handlers({
       );
     }
 
+    const vid = visitor_id.slice(0, 128);
+    const lbl = typeof label === "string" ? label.slice(0, 256) : null;
     await ctx.state.db.run(
       `INSERT OR IGNORE INTO excluded_visitors (visitor_id, label) VALUES (?, ?)`,
-      visitor_id,
-      (label as string) ?? null,
+      vid,
+      lbl,
     );
-    return Response.json({ excluded: visitor_id }, { status: 201 });
+    return Response.json({ excluded: vid }, { status: 201 });
   },
 });

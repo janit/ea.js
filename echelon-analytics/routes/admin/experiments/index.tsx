@@ -4,6 +4,8 @@ import { AdminNav } from "../../../components/AdminNav.tsx";
 import { getLiveStats } from "../../../lib/admin-stats.ts";
 import { getExperimentStats } from "../../../lib/stats.ts";
 import ExperimentForm from "../../../islands/ExperimentForm.tsx";
+import { PUBLIC_MODE } from "../../../lib/config.ts";
+import { formatDate } from "../../../lib/format.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -22,33 +24,47 @@ export default define.page<typeof handler>(function ExperimentsPage({ state }) {
   const { experiments, stats, liveStats } = state.pageData;
 
   return (
-    <AdminNav title="Experiments" liveStats={liveStats}>
-      <div class="bg-[#111] border border-[#1a3a1a] p-4 mb-4">
-        <h3 class="text-sm text-[#33ff33] mb-2">Create Experiment</h3>
-        <ExperimentForm />
-      </div>
+    <AdminNav
+      title="A/B Experiments"
+      liveStats={liveStats}
+      siteId={state.siteId}
+      knownSites={state.knownSites}
+      days={state.days}
+      url={state.url}
+      telemetryState={state.telemetryState}
+    >
+      {!PUBLIC_MODE && (
+        <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] p-4 mb-4">
+          <h3 class="text-sm text-[var(--ea-primary)] mb-2">
+            Create Experiment
+          </h3>
+          <ExperimentForm />
+        </div>
+      )}
 
-      <h3 class="text-sm text-[#33ff33] mb-2">
+      <h3 class="text-sm text-[var(--ea-primary)] mb-2">
         All Experiments ({experiments.length})
       </h3>
-      <div class="bg-[#111] border border-[#1a3a1a] overflow-hidden mb-4">
+      <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden mb-4">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-[#1a3a1a]">
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">ID</th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+            <tr class="border-b border-[var(--ea-border)]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
+                ID
+              </th>
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Name
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Status
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Metric
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Created
               </th>
-              <th class="text-left px-4 py-2 text-xs text-[#1a5a1a]">
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Actions
               </th>
             </tr>
@@ -57,19 +73,19 @@ export default define.page<typeof handler>(function ExperimentsPage({ state }) {
             {experiments.map((e) => (
               <tr
                 key={e.experiment_id as string}
-                class="border-b border-[#0d1a0d]"
+                class="border-b border-[var(--ea-surface-alt)]"
               >
                 <td class="px-4 py-1.5">
                   <a
                     href={`/admin/experiments/${
                       encodeURIComponent(e.experiment_id as string)
                     }`}
-                    class="text-[#33ff33] hover:text-[#66ff66]"
+                    class="text-[var(--ea-primary)] hover:text-[var(--ea-primary-hover)]"
                   >
                     {e.experiment_id as string}
                   </a>
                 </td>
-                <td class="px-4 py-1.5 text-[#1a9a1a]">
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {e.name as string}
                 </td>
                 <td class="px-4 py-1.5">
@@ -77,18 +93,18 @@ export default define.page<typeof handler>(function ExperimentsPage({ state }) {
                     {e.status as string}
                   </span>
                 </td>
-                <td class="px-4 py-1.5 text-[#1a9a1a]">
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {e.metric_event_type as string}
                 </td>
-                <td class="px-4 py-1.5 text-[#1a5a1a]">
-                  {(e.created_at as string).slice(0, 10)}
+                <td class="px-4 py-1.5 text-[var(--ea-muted)]">
+                  {formatDate(e.created_at as string)}
                 </td>
                 <td class="px-4 py-1.5">
                   <a
                     href={`/admin/experiments/${
                       encodeURIComponent(e.experiment_id as string)
                     }`}
-                    class="text-xs text-[#33ff33] hover:text-[#66ff66]"
+                    class="text-xs text-[var(--ea-primary)] hover:text-[var(--ea-primary-hover)]"
                   >
                     view
                   </a>
@@ -99,66 +115,69 @@ export default define.page<typeof handler>(function ExperimentsPage({ state }) {
         </table>
       </div>
       {experiments.length === 0 && (
-        <p class="text-[#1a5a1a] text-sm">No experiments yet.</p>
+        <p class="text-[var(--ea-muted)] text-sm">No experiments yet.</p>
       )}
 
       {stats.length > 0 && (
         <>
-          <h3 class="text-sm text-[#33ff33] mb-2 mt-4">
+          <h3 class="text-sm text-[var(--ea-primary)] mb-2 mt-4">
             Active/Completed Stats
           </h3>
           {stats.map((s) => (
             <div
               key={s.experiment_id}
-              class="bg-[#111] border border-[#1a3a1a] p-4 mb-3"
+              class="bg-[var(--ea-surface)] border border-[var(--ea-border)] p-4 mb-3"
             >
-              <h4 class="text-sm text-[#33ff33]">
+              <h4 class="text-sm text-[var(--ea-primary)]">
                 {s.name} <span class={`status-${s.status}`}>({s.status})</span>
               </h4>
               <table class="w-full text-sm mt-2">
                 <thead>
-                  <tr class="border-b border-[#1a3a1a]">
-                    <th class="text-left py-1 text-xs text-[#1a5a1a]">
+                  <tr class="border-b border-[var(--ea-border)]">
+                    <th class="text-left py-1 text-xs text-[var(--ea-muted)]">
                       Variant
                     </th>
-                    <th class="text-right py-1 text-xs text-[#1a5a1a]">
+                    <th class="text-right py-1 text-xs text-[var(--ea-muted)]">
                       Impressions
                     </th>
-                    <th class="text-right py-1 text-xs text-[#1a5a1a]">
+                    <th class="text-right py-1 text-xs text-[var(--ea-muted)]">
                       Conversions
                     </th>
-                    <th class="text-right py-1 text-xs text-[#1a5a1a]">
+                    <th class="text-right py-1 text-xs text-[var(--ea-muted)]">
                       Rate
                     </th>
-                    <th class="text-right py-1 text-xs text-[#1a5a1a]">
+                    <th class="text-right py-1 text-xs text-[var(--ea-muted)]">
                       Uplift
                     </th>
-                    <th class="text-left py-1 text-xs text-[#1a5a1a]">
+                    <th class="text-left py-1 text-xs text-[var(--ea-muted)]">
                       Significance
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {s.variants.map((v) => (
-                    <tr key={v.variant_id} class="border-b border-[#0d1a0d]">
-                      <td class="py-1 text-[#1a9a1a]">
+                    <tr
+                      key={v.variant_id}
+                      class="border-b border-[var(--ea-surface-alt)]"
+                    >
+                      <td class="py-1 text-[var(--ea-text)]">
                         {v.name} {v.is_control && "(control)"}
                       </td>
-                      <td class="py-1 text-right tabular-nums text-[#33ff33]">
+                      <td class="py-1 text-right tabular-nums text-[var(--ea-primary)]">
                         {v.impressions}
                       </td>
                       <td class="py-1 text-right tabular-nums text-[#ff6600]">
                         {v.conversions}
                       </td>
-                      <td class="py-1 text-right tabular-nums text-[#33ff33]">
+                      <td class="py-1 text-right tabular-nums text-[var(--ea-primary)]">
                         {(v.conversion_rate * 100).toFixed(2)}%
                       </td>
-                      <td class="py-1 text-right tabular-nums text-[#ffaa00]">
+                      <td class="py-1 text-right tabular-nums text-[var(--ea-warn)]">
                         {v.relative_uplift !== null
                           ? `${(v.relative_uplift * 100).toFixed(1)}%`
                           : "-"}
                       </td>
-                      <td class="py-1 text-xs text-[#1a5a1a]">
+                      <td class="py-1 text-xs text-[var(--ea-muted)]">
                         {v.significance}
                       </td>
                     </tr>

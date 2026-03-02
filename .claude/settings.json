@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "echelon-analytics": {
+      "command": "deno",
+      "args": ["task", "mcp"],
+      "cwd": "echelon-analytics",
+      "env": {
+        "ECHELON_URL": "https://ea.islets.app"
+      }
+    }
+  }
+}

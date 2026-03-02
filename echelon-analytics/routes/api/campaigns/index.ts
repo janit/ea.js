@@ -1,12 +1,12 @@
 import { define } from "../../../utils.ts";
-import { refreshUtmCampaigns } from "../../../lib/utm.ts";
+import { markStale, refreshUtmCampaigns } from "../../../lib/utm.ts";
 
 const ID_RE = /^[a-zA-Z0-9._-]+$/;
 
 export const handler = define.handlers({
   async GET(ctx) {
     const rows = await ctx.state.db.query(
-      `SELECT * FROM utm_campaigns ORDER BY created_at DESC`,
+      `SELECT * FROM utm_campaigns ORDER BY created_at DESC LIMIT 200`,
     );
     return Response.json(rows);
   },
@@ -60,6 +60,7 @@ export const handler = define.handlers({
         cSite,
       );
 
+      markStale();
       await refreshUtmCampaigns(db);
       return Response.json({ created: cId }, { status: 201 });
     } catch {
