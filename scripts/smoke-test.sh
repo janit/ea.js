@@ -704,7 +704,9 @@ fi
 
 section "API Ingest /api/ingest — Valid Batch"
 
-if [[ ${#AUTH_HEADER[@]} -gt 0 ]] || [[ -z "$SECRET" ]]; then
+if [[ "$PUBLIC_MODE_DETECTED" == true ]]; then
+  info "Skipping /api/ingest valid batch test (PUBLIC_MODE blocks POST)"
+elif [[ ${#AUTH_HEADER[@]} -gt 0 ]] || [[ -z "$SECRET" ]]; then
   http_check "POST /api/ingest valid batch returns 200" 200 \
     "${AUTH_HEADER[@]+"${AUTH_HEADER[@]}"}" \
     -X POST \
@@ -725,7 +727,9 @@ fi
 
 section "API Ingest /api/ingest — Malformed Batches"
 
-if [[ ${#AUTH_HEADER[@]} -gt 0 ]] || [[ -z "$SECRET" ]]; then
+if [[ "$PUBLIC_MODE_DETECTED" == true ]]; then
+  info "Skipping /api/ingest malformed batch tests (PUBLIC_MODE blocks POST)"
+elif [[ ${#AUTH_HEADER[@]} -gt 0 ]] || [[ -z "$SECRET" ]]; then
 
   # Empty body
   http_check "POST /api/ingest empty body returns 400" 400 \
@@ -817,7 +821,9 @@ fi
 
 section "API Perf Ingest /api/perf"
 
-if [[ ${#AUTH_HEADER[@]} -gt 0 ]] || [[ -z "$SECRET" ]]; then
+if [[ "$PUBLIC_MODE_DETECTED" == true ]]; then
+  info "Skipping /api/perf ingest tests (PUBLIC_MODE blocks POST)"
+elif [[ ${#AUTH_HEADER[@]} -gt 0 ]] || [[ -z "$SECRET" ]]; then
 
   # Valid metric insert
   http_check "POST /api/perf valid metric returns 200" 200 \
@@ -1111,7 +1117,9 @@ else
 fi
 
 # 5xx responses on auth endpoints must not leak internals
-if [[ ${#AUTH_HEADER[@]} -gt 0 ]] || [[ -z "$SECRET" ]]; then
+if [[ "$PUBLIC_MODE_DETECTED" == true ]]; then
+  info "Skipping /api/ingest error-leak test (PUBLIC_MODE blocks POST)"
+elif [[ ${#AUTH_HEADER[@]} -gt 0 ]] || [[ -z "$SECRET" ]]; then
   BAD_BODY=$(curl -s --max-time 5 \
     "${AUTH_HEADER[@]+"${AUTH_HEADER[@]}"}" \
     -X POST -H "Content-Type: application/json" \
