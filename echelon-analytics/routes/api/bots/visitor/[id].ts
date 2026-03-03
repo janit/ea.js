@@ -7,6 +7,7 @@ export const handler = define.handlers({
 
     const views = await db.query(
       `SELECT path, site_id, interaction_ms, device_type, os_name,
+              browser_name, browser_version,
               country_code, referrer_type, bot_score, is_pwa, created_at
        FROM visitor_views WHERE visitor_id = ?
        ORDER BY created_at DESC LIMIT 100`,

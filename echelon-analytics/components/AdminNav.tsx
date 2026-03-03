@@ -243,14 +243,16 @@ export function AdminNav(
               {/* Right cluster: theme + telemetry + logout */}
               <div class="nav-right">
                 <ThemeSelector themes={THEMES} />
-                <form method="POST" action="/admin/logout" class="inline">
-                  <button
-                    type="submit"
-                    class="text-sm text-[var(--ea-nav-muted)] hover:text-[var(--ea-nav-text)] whitespace-nowrap bg-transparent border-none cursor-pointer p-0"
-                  >
-                    Logout 🪵<span class="text-red-500">➡</span>🚪
-                  </button>
-                </form>
+                {!PUBLIC_MODE && (
+                  <form method="POST" action="/admin/logout" class="inline">
+                    <button
+                      type="submit"
+                      class="text-sm text-[var(--ea-nav-muted)] hover:text-[var(--ea-nav-text)] whitespace-nowrap bg-transparent border-none cursor-pointer p-0"
+                    >
+                      Logout 🪵<span class="text-red-500">➡</span>🚪
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
 

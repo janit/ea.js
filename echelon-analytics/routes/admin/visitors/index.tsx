@@ -109,6 +109,7 @@ export const handler = define.handlers({
       MIN(created_at) AS first_seen,
       MAX(device_type) AS device_type,
       MAX(os_name) AS os_name,
+      MAX(browser_name || ' ' || browser_version) AS browser,
       MAX(country_code) AS country_code,
       MAX(is_returning) AS is_returning,
       MAX(bot_score) AS max_bot_score,
@@ -309,6 +310,9 @@ export default define.page<typeof handler>(function VisitorsPage({ state }) {
                 OS
               </th>
               <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
+                Browser
+              </th>
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Country
               </th>
               <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
@@ -354,6 +358,9 @@ export default define.page<typeof handler>(function VisitorsPage({ state }) {
                 </td>
                 <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {(r.os_name as string) || "-"}
+                </td>
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
+                  {(r.browser as string) || "-"}
                 </td>
                 <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {r.country_code as string}

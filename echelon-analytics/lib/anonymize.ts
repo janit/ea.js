@@ -277,30 +277,30 @@ async function anonymizeScreenSize(
 }
 
 const TROPICAL_BIRDS = [
-  "Scarlet Macaw",
-  "Hyacinth Macaw",
-  "Keel-billed Toucan",
-  "Resplendent Quetzal",
-  "Blue-and-yellow Macaw",
-  "Eclectus Parrot",
-  "Sun Conure",
-  "Rainbow Lorikeet",
-  "Flamingo",
-  "Golden Pheasant",
-  "Lilac-breasted Roller",
-  "Mandarin Duck",
-  "Paradise Tanager",
-  "Crimson Rosella",
-  "Painted Bunting",
-  "Turquoise-browed Motmot",
-  "Red-legged Honeycreeper",
-  "Superb Bird-of-Paradise",
-  "King Vulture",
-  "Harpy Eagle",
-  "Jabiru Stork",
   "Hoatzin",
-  "Cock-of-the-rock",
+  "Paradise Tanager",
+  "Flamingo",
+  "Harpy Eagle",
   "Blue-crowned Motmot",
+  "Crimson Rosella",
+  "Keel-billed Toucan",
+  "Sun Conure",
+  "King Vulture",
+  "Mandarin Duck",
+  "Painted Bunting",
+  "Cock-of-the-rock",
+  "Eclectus Parrot",
+  "Lilac-breasted Roller",
+  "Jabiru Stork",
+  "Resplendent Quetzal",
+  "Red-legged Honeycreeper",
+  "Rainbow Lorikeet",
+  "Blue-and-yellow Macaw",
+  "Golden Pheasant",
+  "Superb Bird-of-Paradise",
+  "Hyacinth Macaw",
+  "Turquoise-browed Motmot",
+  "Scarlet Macaw",
 ];
 
 /** Map OS name to a tropical bird via deterministic HMAC hash */
@@ -308,6 +308,78 @@ async function anonymizeOsName(os: string | null): Promise<string | null> {
   if (!os) return null;
   const hash = await hmacHex(os);
   return TROPICAL_BIRDS[pickIndex(hash, TROPICAL_BIRDS.length)];
+}
+
+// ── Browser anonymization ────────────────────────────────────────────────
+// Map browser name to "{Mammal}{BodyPart}" and version to a deterministic
+// "major.minor" number (e.g. "Badgerhead 49.1").
+
+const MAMMALS = [
+  "Badger",
+  "Fox",
+  "Wolf",
+  "Bear",
+  "Otter",
+  "Elk",
+  "Lynx",
+  "Hare",
+  "Mink",
+  "Seal",
+  "Moose",
+  "Stoat",
+  "Beaver",
+  "Marten",
+  "Hedgehog",
+  "Wolverine",
+  "Boar",
+  "Deer",
+  "Squirrel",
+  "Reindeer",
+  "Weasel",
+  "Polecat",
+  "Vole",
+  "Shrew",
+];
+
+const BODY_PARTS = [
+  "head",
+  "paw",
+  "snout",
+  "ear",
+  "claw",
+  "tail",
+  "jaw",
+  "fang",
+  "horn",
+  "hoof",
+  "mane",
+  "whisker",
+  "haunch",
+  "flank",
+  "rump",
+  "hide",
+];
+
+/** Map browser name to a mammal + body part combo (e.g. "Badgerhead") */
+async function anonymizeBrowserName(
+  name: string | null,
+): Promise<string | null> {
+  if (!name) return null;
+  const hash = await hmacHex(name);
+  const mammal = MAMMALS[pickIndex(hash, MAMMALS.length)];
+  const part = BODY_PARTS[pickIndex(hash.slice(8), BODY_PARTS.length)];
+  return `${mammal}${part}`;
+}
+
+/** Map browser version to a deterministic "major.minor" number (e.g. "49.1") */
+async function anonymizeBrowserVersion(
+  version: string | null,
+): Promise<string | null> {
+  if (!version) return null;
+  const hash = await hmacHex(version);
+  const major = (parseInt(hash.slice(0, 4), 16) % 150) + 1;
+  const minor = parseInt(hash.slice(4, 6), 16) % 10;
+  return `${major}.${minor}`;
 }
 
 /** Map device types to sci-fi vessel classes */
@@ -403,6 +475,8 @@ export async function anonymizeView(record: ViewRecord): Promise<ViewRecord> {
     screen_height: anonHeight,
     device_type: anonymizeDeviceType(record.device_type),
     os_name: await anonymizeOsName(record.os_name),
+    browser_name: await anonymizeBrowserName(record.browser_name),
+    browser_version: await anonymizeBrowserVersion(record.browser_version),
     referrer: refHash
       ? `https://nsa-intranet.gov/ops/${
         NSA_CODENAMES[pickIndex(refHash, NSA_CODENAMES.length)]

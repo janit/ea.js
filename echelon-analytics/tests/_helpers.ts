@@ -40,6 +40,8 @@ export interface ViewOverrides {
   screen_height?: number | null;
   device_type?: string | null;
   os_name?: string | null;
+  browser_name?: string | null;
+  browser_version?: string | null;
   country_code?: string | null;
   is_returning?: number;
   referrer?: string | null;
@@ -68,6 +70,8 @@ export async function insertView(
     screen_height: 1080,
     device_type: "desktop",
     os_name: "Linux",
+    browser_name: "Chrome",
+    browser_version: "120.0.0.0",
     country_code: "NO",
     is_returning: 0,
     referrer: null,
@@ -85,10 +89,11 @@ export async function insertView(
   await db.run(
     `INSERT INTO visitor_views
       (visitor_id, path, site_id, session_id, interaction_ms,
-       screen_width, screen_height, device_type, os_name, country_code,
+       screen_width, screen_height, device_type, os_name, browser_name, browser_version,
+       country_code,
        is_returning, referrer, referrer_type, bot_score, is_pwa,
        utm_source, utm_medium, utm_campaign, utm_content, utm_term, created_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     v.visitor_id,
     v.path,
     v.site_id,
@@ -98,6 +103,8 @@ export async function insertView(
     v.screen_height,
     v.device_type,
     v.os_name,
+    v.browser_name,
+    v.browser_version,
     v.country_code,
     v.is_returning,
     v.referrer,

@@ -17,6 +17,8 @@ export const SCHEMA_SQL = `
     screen_height INTEGER,
     device_type TEXT,
     os_name TEXT,
+    browser_name TEXT,
+    browser_version TEXT,
     country_code TEXT,
     is_returning INTEGER NOT NULL DEFAULT 0,
     referrer TEXT,

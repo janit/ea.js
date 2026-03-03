@@ -29,6 +29,7 @@ export const handler = define.handlers({
               GROUP_CONCAT(DISTINCT device_type) AS devices,
               GROUP_CONCAT(DISTINCT country_code) AS countries,
               GROUP_CONCAT(DISTINCT os_name) AS os_names,
+              GROUP_CONCAT(DISTINCT (browser_name || ' ' || browser_version)) AS browsers,
               EXISTS(SELECT 1 FROM excluded_visitors ev WHERE ev.visitor_id = visitor_views.visitor_id) AS is_excluded
        FROM visitor_views ${where}
        GROUP BY visitor_id

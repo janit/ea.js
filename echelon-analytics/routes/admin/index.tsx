@@ -174,7 +174,7 @@ export default define.page<typeof handler>(function Dashboard({ state }) {
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-3 mt-3">
+      <div class="grid grid-cols-3 gap-3 mt-3">
         <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
           <div class="px-4 py-3 border-b border-[var(--ea-border)]">
             <h3 class="text-sm text-[var(--ea-primary)]">Operating Systems</h3>
@@ -208,6 +208,47 @@ export default define.page<typeof handler>(function Dashboard({ state }) {
                     </td>
                     <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-text)]">
                       {o.visitors}
+                    </td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="bg-[var(--ea-surface)] border border-[var(--ea-border)] overflow-hidden">
+          <div class="px-4 py-3 border-b border-[var(--ea-border)]">
+            <h3 class="text-sm text-[var(--ea-primary)]">Browsers</h3>
+          </div>
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-[var(--ea-border)]">
+                <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
+                  Browser
+                </th>
+                <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
+                  Views
+                </th>
+                <th class="text-right px-4 py-2 text-xs text-[var(--ea-muted)]">
+                  Visitors
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.browsers.map(
+                (b: { browser: string; views: number; visitors: number }) => (
+                  <tr
+                    key={b.browser}
+                    class="border-b border-[var(--ea-surface-alt)]"
+                  >
+                    <td class="px-4 py-1.5 text-[var(--ea-text)]">
+                      {b.browser}
+                    </td>
+                    <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-primary)]">
+                      {b.views}
+                    </td>
+                    <td class="px-4 py-1.5 text-right tabular-nums text-[var(--ea-text)]">
+                      {b.visitors}
                     </td>
                   </tr>
                 ),

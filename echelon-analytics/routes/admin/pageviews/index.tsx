@@ -226,6 +226,9 @@ export default define.page<typeof handler>(function PageViewsPage({ state }) {
                 OS
               </th>
               <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
+                Browser
+              </th>
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Country
               </th>
               <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
@@ -269,6 +272,11 @@ export default define.page<typeof handler>(function PageViewsPage({ state }) {
                 </td>
                 <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {(r.os_name as string) || "-"}
+                </td>
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
+                  {r.browser_name
+                    ? `${r.browser_name} ${r.browser_version || ""}`.trim()
+                    : "-"}
                 </td>
                 <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {r.country_code as string}

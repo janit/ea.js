@@ -15,6 +15,7 @@ import {
   hashIp,
   hashVisitor,
   isKnownBot,
+  parseBrowser,
   parseOS,
   recordBurst,
 } from "./bot-score.ts";
@@ -95,10 +96,11 @@ import { getRequestCookie as getCookie } from "./cookie.ts";
 import type { SQLParam } from "./db/adapter.ts";
 
 const VIEW_COLS = `(visitor_id, path, site_id, session_id, interaction_ms,
-   screen_width, screen_height, device_type, os_name, country_code,
+   screen_width, screen_height, device_type, os_name, browser_name, browser_version,
+   country_code,
    is_returning, referrer, referrer_type, bot_score, bot_score_detail, is_pwa,
    utm_source, utm_medium, utm_campaign, utm_content, utm_term)`;
-const VIEW_COL_COUNT = 21;
+const VIEW_COL_COUNT = 23;
 const CHUNK_SIZE = 50;
 const ONE_ROW = `(${Array(VIEW_COL_COUNT).fill("?").join(",")})`;
 
@@ -113,6 +115,8 @@ function viewParams(v: ViewRecord): SQLParam[] {
     v.screen_height,
     v.device_type,
     v.os_name,
+    v.browser_name,
+    v.browser_version,
     v.country_code,
     v.is_returning,
     v.referrer,
@@ -357,7 +361,9 @@ export async function handleBeacon(
     });
 
     const isPwa = url.searchParams.get("pwa") === "1";
-    const osName = parseOS(req.headers.get("user-agent") ?? undefined);
+    const rawUa = req.headers.get("user-agent") ?? undefined;
+    const osName = parseOS(rawUa);
+    const browser = parseBrowser(rawUa);
     const deviceType = validScreen ? classifyDevice(screenWidth) : undefined;
 
     // Discard if bot score exceeds threshold (when configured)
@@ -375,6 +381,8 @@ export async function handleBeacon(
         screen_height: validScreen ? screenHeight! : null,
         device_type: deviceType ?? null,
         os_name: osName ?? null,
+        browser_name: browser?.name ?? null,
+        browser_version: browser?.version ?? null,
         country_code: visitorCountry ?? null,
         is_returning: isReturning ? 1 : 0,
         referrer,

@@ -215,6 +215,19 @@ export async function getOverview(
     pathCutoff + "T00:00:00Z",
   );
 
+  const browsers = await db.query<{
+    browser: string;
+    views: number;
+    visitors: number;
+  }>(
+    `SELECT COALESCE(browser_name || ' ' || browser_version, browser_name, 'Unknown') AS browser,
+            COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
+     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     GROUP BY browser ORDER BY views DESC LIMIT 20`,
+    siteId,
+    pathCutoff + "T00:00:00Z",
+  );
+
   const resolutions = (await db.query<{
     resolution: string;
     views: number;
@@ -252,6 +265,7 @@ export async function getOverview(
     countries,
     referrers,
     os_systems: osSystems,
+    browsers,
     resolutions,
     daily_trend: dailyTrend,
   };
@@ -495,6 +509,7 @@ export async function getDashboardLive(db: DbAdapter, siteId: string) {
   const recentVisitors = await db.query<Record<string, unknown>>(
     `SELECT visitor_id, MAX(device_type) AS device_type,
             MAX(os_name) AS os_name,
+            MAX(browser_name || ' ' || browser_version) AS browser,
             MAX(country_code) AS country_code, MAX(created_at) AS created_at,
             COUNT(*) AS view_count
      FROM visitor_views

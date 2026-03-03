@@ -17,6 +17,8 @@ function baseView(overrides: Partial<ViewRecord> = {}): ViewRecord {
     screen_height: 1080,
     device_type: "desktop",
     os_name: "Linux",
+    browser_name: "Chrome",
+    browser_version: "120.0.0.0",
     country_code: "NO",
     is_returning: 0,
     referrer: "https://google.com",
@@ -160,6 +162,40 @@ Deno.test("anonymizeView — maps os_name to tropical bird", async () => {
   // Deterministic: same input → same bird
   const anon2 = await anonymizeView(baseView({ os_name: "macOS 10.15" }));
   assertEquals(anon.os_name, anon2.os_name);
+});
+
+Deno.test("anonymizeView — maps browser_name to mammal body part", async () => {
+  const anon = await anonymizeView(
+    baseView({ browser_name: "Chrome", browser_version: "120.0.0.0" }),
+  );
+  assertNotEquals(anon.browser_name, "Chrome");
+  assertEquals(typeof anon.browser_name, "string");
+  // Deterministic: same input → same mammal body part
+  const anon2 = await anonymizeView(
+    baseView({ browser_name: "Chrome", browser_version: "120.0.0.0" }),
+  );
+  assertEquals(anon.browser_name, anon2.browser_name);
+});
+
+Deno.test("anonymizeView — maps browser_version to deterministic version", async () => {
+  const anon = await anonymizeView(
+    baseView({ browser_version: "120.0.0.0" }),
+  );
+  assertNotEquals(anon.browser_version, "120.0.0.0");
+  assertEquals(/^\d+\.\d+$/.test(anon.browser_version!), true);
+  // Deterministic
+  const anon2 = await anonymizeView(
+    baseView({ browser_version: "120.0.0.0" }),
+  );
+  assertEquals(anon.browser_version, anon2.browser_version);
+});
+
+Deno.test("anonymizeView — null browser fields stay null", async () => {
+  const anon = await anonymizeView(
+    baseView({ browser_name: null, browser_version: null }),
+  );
+  assertEquals(anon.browser_name, null);
+  assertEquals(anon.browser_version, null);
 });
 
 Deno.test("anonymizeView — maps device_type to vessel class", async () => {

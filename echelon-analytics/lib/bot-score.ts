@@ -392,6 +392,41 @@ export function parseOS(ua: string | undefined): string | undefined {
   return undefined;
 }
 
+/** Parse browser name + version from User-Agent string. */
+export function parseBrowser(
+  ua: string | undefined,
+): { name: string; version: string } | undefined {
+  if (!ua) return undefined;
+
+  // Order matters: check specific browsers before generic ones
+  const edge = ua.match(/Edg(?:e|A|iOS)?\/(\d+(?:\.\d+)*)/);
+  if (edge) return { name: "Edge", version: edge[1] };
+
+  const opera = ua.match(/(?:OPR|Opera)\/(\d+(?:\.\d+)*)/);
+  if (opera) return { name: "Opera", version: opera[1] };
+
+  const samsung = ua.match(/SamsungBrowser\/(\d+(?:\.\d+)*)/);
+  if (samsung) return { name: "Samsung Browser", version: samsung[1] };
+
+  const uc = ua.match(/UCBrowser\/(\d+(?:\.\d+)*)/);
+  if (uc) return { name: "UC Browser", version: uc[1] };
+
+  // Chrome (must come after Edge, Opera, Samsung, UC which also contain "Chrome")
+  const chrome = ua.match(/(?:Chrome|CriOS)\/(\d+(?:\.\d+)*)/);
+  if (chrome && !/Edg/.test(ua) && !/OPR/.test(ua)) {
+    return { name: "Chrome", version: chrome[1] };
+  }
+
+  const firefox = ua.match(/(?:Firefox|FxiOS)\/(\d+(?:\.\d+)*)/);
+  if (firefox) return { name: "Firefox", version: firefox[1] };
+
+  // Safari (must come after Chrome and Firefox which also contain "Safari")
+  const safari = ua.match(/Version\/(\d+(?:\.\d+)*)\s.*Safari/);
+  if (safari) return { name: "Safari", version: safari[1] };
+
+  return undefined;
+}
+
 // ── Geo headers ─────────────────────────────────────────────────────────────
 
 /** Extract visitor country from CDN geo headers. */

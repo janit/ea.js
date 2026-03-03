@@ -126,6 +126,22 @@ async function migrate(adapter: DbAdapter): Promise<void> {
       "[echelon] Migration: added bot_score_detail to visitor_views",
     );
   }
+  // Add browser_name + browser_version columns to visitor_views
+  if (!await adapter.columnExists("visitor_views", "browser_name")) {
+    await adapter.exec(
+      "ALTER TABLE visitor_views ADD COLUMN browser_name TEXT",
+    );
+    console.log("[echelon] Migration: added browser_name to visitor_views");
+  }
+  if (!await adapter.columnExists("visitor_views", "browser_version")) {
+    await adapter.exec(
+      "ALTER TABLE visitor_views ADD COLUMN browser_version TEXT",
+    );
+    console.log(
+      "[echelon] Migration: added browser_version to visitor_views",
+    );
+  }
+
   if (!await adapter.columnExists("semantic_events", "bot_score_detail")) {
     await adapter.exec(
       "ALTER TABLE semantic_events ADD COLUMN bot_score_detail TEXT",

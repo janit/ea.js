@@ -10,6 +10,8 @@ export interface ViewRecord {
   screen_height: number | null;
   device_type: string | null;
   os_name: string | null;
+  browser_name: string | null;
+  browser_version: string | null;
   country_code: string | null;
   is_returning: number;
   referrer: string | null;

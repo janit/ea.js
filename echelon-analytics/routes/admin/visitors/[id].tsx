@@ -14,7 +14,7 @@ export const handler = define.handlers({
 
     const views = await db.query<Record<string, unknown>>(
       `SELECT id, path, site_id, interaction_ms, screen_width, screen_height,
-              device_type, os_name,
+              device_type, os_name, browser_name, browser_version,
               country_code, referrer, bot_score, is_returning, is_pwa, created_at
        FROM visitor_views WHERE visitor_id = ?
        ORDER BY created_at DESC LIMIT 200`,
@@ -178,6 +178,9 @@ export default define.page<typeof handler>(function VisitorDetailPage({
                 OS
               </th>
               <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
+                Browser
+              </th>
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Resolution
               </th>
               <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
@@ -211,6 +214,11 @@ export default define.page<typeof handler>(function VisitorDetailPage({
                 </td>
                 <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {(v.os_name as string) || "-"}
+                </td>
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
+                  {v.browser_name
+                    ? `${v.browser_name} ${v.browser_version || ""}`.trim()
+                    : "-"}
                 </td>
                 <td class="px-4 py-1.5 text-[var(--ea-text)] tabular-nums">
                   {v.screen_width

@@ -39,6 +39,7 @@ export const handler = define.handlers({
               GROUP_CONCAT(DISTINCT site_id) AS sites,
               GROUP_CONCAT(DISTINCT device_type) AS devices,
               GROUP_CONCAT(DISTINCT os_name) AS os_names,
+              GROUP_CONCAT(DISTINCT (browser_name || ' ' || browser_version)) AS browsers,
               GROUP_CONCAT(DISTINCT country_code) AS countries,
               EXISTS(SELECT 1 FROM excluded_visitors ev WHERE ev.visitor_id = visitor_views.visitor_id) AS is_excluded
        FROM visitor_views ${where}
@@ -100,6 +101,9 @@ export default define.page<typeof handler>(function SuspiciousPage({ state }) {
                 OS
               </th>
               <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
+                Browser
+              </th>
+              <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
                 Last Seen
               </th>
               <th class="text-left px-4 py-2 text-xs text-[var(--ea-muted)]">
@@ -139,6 +143,9 @@ export default define.page<typeof handler>(function SuspiciousPage({ state }) {
                 </td>
                 <td class="px-4 py-1.5 text-[var(--ea-text)]">
                   {(r.os_names as string) || "-"}
+                </td>
+                <td class="px-4 py-1.5 text-[var(--ea-text)]">
+                  {(r.browsers as string) || "-"}
                 </td>
                 <td class="px-4 py-1.5 text-[var(--ea-muted)]">
                   {formatTime(r.last_seen as string)}

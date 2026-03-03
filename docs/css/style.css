@@ -51,21 +51,16 @@ body {
 .nav-links {
   flex: 1;
   display: flex;
-  align-items: stretch;
-  justify-content: center;
-  gap: 0;
-}
-.nav-links > a {
-  display: flex;
   align-items: center;
-  padding: 0.5rem 0.6rem;
+  justify-content: center;
+  gap: 1rem;
 }
 .site-header a {
   color: #cdd6e4;
   text-decoration: none;
   font-size: 0.85rem;
 }
-.site-header a:hover { color: #fff; text-decoration: none; }
+.site-header a:hover { color: #fff; }
 .site-header .logo {
   font-weight: 700;
   font-size: 1.1rem;
@@ -172,7 +167,7 @@ strong { color: var(--navy); }
 
 /* Links */
 a { color: var(--navy); text-decoration: none; }
-a:hover { color: var(--navy-light); }
+a:hover { color: var(--navy-light); text-decoration: underline; }
 
 /* Code */
 code {
@@ -272,7 +267,7 @@ nav .sep { color: var(--border); margin: 0 0.2rem; }
 }
 .doc-nav a:hover {
   color: var(--burgundy);
-  text-decoration: none !important;
+  text-decoration: none;
   border-bottom-color: var(--burgundy);
 }
 .doc-nav a::before {
@@ -335,7 +330,7 @@ tr:hover td { background: #f0f2f8; }
   margin: 0.5rem 0.5rem 0.5rem 0;
   transition: background 0.15s;
 }
-.cta:hover { background: var(--navy-light); text-decoration: none !important; }
+.cta:hover { background: var(--navy-light); }
 .cta.secondary {
   background: var(--burgundy);
 }
@@ -377,14 +372,9 @@ tr:hover td { background: #f0f2f8; }
 .seal-tip .seal { font-size: 2em; font-style: normal; display: inline-block; vertical-align: middle; line-height: 0; position: relative; top: 10px; }
 
 /* Nav dropdowns */
-.nav-group {
-  position: relative;
-  display: flex;
-  align-items: center;
-  padding: 0.5rem 0.6rem;
-}
+.nav-group { position: relative; }
 .nav-group-label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.2rem;
 }
@@ -408,7 +398,7 @@ tr:hover td { background: #f0f2f8; }
   padding: 0.4rem 1rem;
   white-space: nowrap;
 }
-.nav-dropdown a:hover { background: var(--navy-light); text-decoration: none; }
+.nav-dropdown a:hover { background: var(--navy-light); }
 
 /* Hamburger toggle — hidden by default, shown by JS when links overflow */
 .nav-toggle {
