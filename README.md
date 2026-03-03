@@ -562,6 +562,13 @@ Full documentation at [ea.js.org](https://ea.js.org/) including
 [portable data](https://ea.js.org/portable-data.html), and
 [MCP server](https://ea.js.org/mcp.html).
 
+## Acknowledgments
+
+Built with [Deno](https://deno.com/) and [Fresh](https://fresh.deno.dev/) —
+thanks to the Deno team for creating a runtime and framework that made this
+project a joy to build. And to [Claude Code](https://claude.ai/code) for being
+the tireless pair programmer that brought it all together.
+
 ## License
 
 AGPL-3.0 — see [LICENSE](LICENSE) for details.

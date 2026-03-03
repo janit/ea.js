@@ -129,6 +129,16 @@ export function validateSiteId(raw: string): string {
   return raw.length <= 64 && /^[a-zA-Z0-9._-]+$/.test(raw) ? raw : "default";
 }
 
+// Allowed site IDs — comma-separated allowlist.
+// When set, only these site IDs can send tracking data. Empty = accept all.
+export const ALLOWED_SITES: Set<string> = (() => {
+  const raw = Deno.env.get("ECHELON_ALLOWED_SITES") ?? "";
+  const sites = raw.split(",").map((s) => s.trim().toLowerCase()).filter(
+    Boolean,
+  );
+  return new Set(sites);
+})();
+
 // Site IDs to silently ignore (never store views/events).
 // Comma-separated. Always includes "smoke-test" to filter deploy smoke tests.
 export const IGNORED_SITES: Set<string> = (() => {

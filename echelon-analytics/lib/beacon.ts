@@ -19,6 +19,7 @@ import {
   recordBurst,
 } from "./bot-score.ts";
 import {
+  ALLOWED_SITES,
   BOT_DISCARD_THRESHOLD,
   IGNORED_SITES,
   validateSiteId,
@@ -236,8 +237,12 @@ export async function handleBeacon(
   // Site ID from data-site attribute
   const siteId = validateSiteId(url.searchParams.get("s") ?? "default");
 
-  // Silently drop ignored sites (smoke tests, etc.)
-  if (IGNORED_SITES.has(siteId.toLowerCase())) {
+  // Silently drop ignored or non-allowed sites
+  const siteLower = siteId.toLowerCase();
+  if (IGNORED_SITES.has(siteLower)) {
+    return new Response(PIXEL, { headers: GIF_HEADERS });
+  }
+  if (ALLOWED_SITES.size > 0 && !ALLOWED_SITES.has(siteLower)) {
     return new Response(PIXEL, { headers: GIF_HEADERS });
   }
 

@@ -18,6 +18,7 @@ import {
 } from "./bot-score.ts";
 import { isExcluded } from "./beacon.ts";
 import {
+  ALLOWED_SITES,
   BOT_DISCARD_THRESHOLD,
   EVENT_FLUSH_MS,
   IGNORED_SITES,
@@ -168,8 +169,12 @@ export async function handleEvents(
     typeof body.siteId === "string" ? body.siteId : "default",
   );
 
-  // Silently drop ignored sites (smoke tests, etc.)
-  if (IGNORED_SITES.has(siteId.toLowerCase())) {
+  // Silently drop ignored or non-allowed sites
+  const siteLower = siteId.toLowerCase();
+  if (IGNORED_SITES.has(siteLower)) {
+    return new Response(null, { status: 204 });
+  }
+  if (ALLOWED_SITES.size > 0 && !ALLOWED_SITES.has(siteLower)) {
     return new Response(null, { status: 204 });
   }
 

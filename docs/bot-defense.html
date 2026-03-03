@@ -34,6 +34,7 @@
     <a href="mcp.html">MCP</a>
     <a href="telemetry.html">Telemetry</a>
     <a href="why-ea.html">Why ea.js?</a>
+    <a href="https://ea.islets.app/admin?site_id=ea">Try it</a>
   </div>
 </header>
 
@@ -84,6 +85,16 @@
 
 <h2>Proof-of-Work System</h2>
 <p>Every request for <code>/ea.js</code> embeds a WebAssembly blob and a challenge string. The browser must solve the challenge before sending beacons.</p>
+
+<h3>Why PoW Blocks Robots</h3>
+<p>Most analytics spam comes from scripts that fire HTTP requests directly &mdash; <code>curl</code>, <code>python-requests</code>, headless browsers running thousands of sessions. Proof-of-work stops them because:</p>
+<ul>
+  <li><strong>Requires a real WASM runtime.</strong> The challenge can only be solved by executing a WebAssembly module. Simple HTTP clients can&rsquo;t do this &mdash; they&rsquo;d need to embed a full WASM engine, which eliminates the vast majority of bot scripts.</li>
+  <li><strong>Costs CPU time per request.</strong> Even if a bot does run the WASM, every beacon requires a fresh solve. At scale, this makes spamming your analytics economically impractical &mdash; real browsers solve one challenge and cache it, but a bot farm generating thousands of fake pageviews pays the CPU cost on every single one.</li>
+  <li><strong>Rotates unpredictably.</strong> The WASM module itself is regenerated from a random seed every 6 hours, and the challenge string changes every minute. Bots can&rsquo;t precompute answers or hardcode solutions &mdash; they&rsquo;d need to re-fetch and re-solve constantly.</li>
+  <li><strong>Binds to session context.</strong> The solve includes the session ID and site ID, so a valid token from one session can&rsquo;t be replayed in another. This prevents token-harvesting attacks where a bot solves once and reuses the result.</li>
+  <li><strong>Invisible to real users.</strong> Unlike CAPTCHAs, the PoW runs in the background in under 150ms. Visitors never see it, never interact with it, and never get blocked by it. The cost falls entirely on automation.</li>
+</ul>
 
 <h3>How It Works</h3>
 <ul>
@@ -162,6 +173,7 @@ DELETE /api/bots/exclude/abc123</pre>
   <a href="mcp.html">MCP Server</a>
   <a href="telemetry.html">Telemetry</a>
   <a href="why-ea.html">Why ea.js?</a>
+    
 </div>
 </main>
 
