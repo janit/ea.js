@@ -50,6 +50,200 @@
   --ea-font: "Fixedsys", "Courier New", Courier, monospace;
 }
 
+/* Bad Boys — 1989 Detroit Pistons */
+[data-theme="badboys"] {
+  --ea-bg: #1a0f08;
+  --ea-surface: #2a1e14;
+  --ea-surface-alt: #33261a;
+  --ea-border: #ed174c;
+  --ea-muted: #b08860;
+  --ea-text: #e8ddd0;
+  --ea-primary: #ed174c;
+  --ea-primary-hover: #ff3d6a;
+  --ea-accent: #006bb6;
+  --ea-accent-hover: #1a8ad8;
+  --ea-nav-bg: #0d0804;
+  --ea-nav-text: #e8ddd0;
+  --ea-nav-muted: #8a6a48;
+  --ea-danger: #ed174c;
+  --ea-danger-border: #ed174c;
+  --ea-danger-bg: #2a0a12;
+  --ea-warn: #e8a020;
+  --ea-warn-border: #c88818;
+  --ea-warn-bg: #2a1a08;
+  --ea-info: #006bb6;
+  --ea-font: "Impact", "Haettenschweiler", "Arial Narrow Bold", sans-serif;
+}
+
+/* Bad Boys — hardwood court background */
+[data-theme="badboys"] body {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 58px,
+      rgba(80, 50, 20, 0.15) 58px,
+      rgba(80, 50, 20, 0.15) 60px
+    ),
+    repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 200px,
+    rgba(60, 35, 10, 0.08) 200px,
+    rgba(60, 35, 10, 0.08) 201px
+  ),
+    linear-gradient(180deg, #1a0f08 0%, #231608 50%, #1a0f08 100%);
+}
+
+/* Bad Boys — navigation with court stripe */
+[data-theme="badboys"] #an {
+  border-top: 4px solid #ed174c !important;
+  border-bottom: 2px solid #006bb6;
+  box-shadow: 0 4px 20px rgba(237, 23, 76, 0.3);
+}
+
+/* Bad Boys — main content area: center court circle hint */
+[data-theme="badboys"] main {
+  position: relative;
+}
+[data-theme="badboys"] main::before {
+  content: "";
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  height: 500px;
+  border: 2px solid rgba(237, 23, 76, 0.08);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="badboys"] main::after {
+  content: "";
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 160px;
+  height: 160px;
+  border: 2px solid rgba(237, 23, 76, 0.06);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Bad Boys — rounded court-style panels */
+[data-theme="badboys"] .kpi-card {
+  border-radius: 12px;
+  border: 2px solid rgba(237, 23, 76, 0.4);
+  background:
+    radial-gradient(
+      ellipse at top,
+      rgba(237, 23, 76, 0.08) 0%,
+      transparent 70%
+    ),
+    #2a1e14;
+  box-shadow:
+    0 0 15px rgba(237, 23, 76, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  position: relative;
+  z-index: 1;
+}
+
+/* Bad Boys — data panels with court feel */
+[data-theme="badboys"] table {
+  position: relative;
+  z-index: 1;
+}
+[data-theme="badboys"] thead tr {
+  background: rgba(237, 23, 76, 0.1);
+}
+[data-theme="badboys"] tbody tr:hover {
+  background: rgba(0, 107, 182, 0.1) !important;
+}
+
+/* Bad Boys — flashy bot score badges */
+[data-theme="badboys"] .bot-score-badge {
+  border-radius: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+[data-theme="badboys"] .bot-score-high {
+  box-shadow: 0 0 8px rgba(237, 23, 76, 0.4);
+}
+
+/* Bad Boys — headings with basketball flair */
+[data-theme="badboys"] h1 {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 20px rgba(237, 23, 76, 0.3);
+}
+[data-theme="badboys"] h3 {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Bad Boys — visitor IDs as jersey numbers */
+[data-theme="badboys"] .visitor-id {
+  font-weight: 700;
+  border-bottom: 2px solid #ed174c;
+  color: #006bb6 !important;
+}
+
+/* Bad Boys — scrollbar in team colors */
+[data-theme="badboys"] ::-webkit-scrollbar-thumb {
+  background: #ed174c;
+  border-radius: 3px;
+}
+[data-theme="badboys"] ::-webkit-scrollbar-thumb:hover {
+  background: #ff3d6a;
+}
+[data-theme="badboys"] ::-webkit-scrollbar-track {
+  background: #1a0f08;
+}
+
+/* Bad Boys — buttons and inputs */
+[data-theme="badboys"] select,
+[data-theme="badboys"] input {
+  border-radius: 8px !important;
+}
+
+/* Bad Boys — links glow on hover */
+[data-theme="badboys"] a:hover {
+  text-shadow: 0 0 10px rgba(237, 23, 76, 0.5);
+}
+
+/* Bad Boys — footer court line */
+[data-theme="badboys"] footer {
+  border-top: 2px solid rgba(237, 23, 76, 0.2);
+}
+
+/* Bad Boys — basketball cursor */
+[data-theme="badboys"],
+[data-theme="badboys"] * {
+  cursor:
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><circle cx='14' cy='14' r='13' fill='%23e87830' stroke='%23333' stroke-width='1.5'/><path d='M3 14h22M14 3v22M5 5c5 3 8 6 9 18M23 5c-5 3-8 6-9 18' stroke='%23333' stroke-width='1.2' fill='none'/></svg>")
+    14 14,
+    auto;
+}
+[data-theme="badboys"] a,
+[data-theme="badboys"] button,
+[data-theme="badboys"] select,
+[data-theme="badboys"] label,
+[data-theme="badboys"] [role="button"] {
+  cursor:
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><circle cx='14' cy='14' r='13' fill='%23ed174c' stroke='%23fff' stroke-width='1.5'/><path d='M3 14h22M14 3v22M5 5c5 3 8 6 9 18M23 5c-5 3-8 6-9 18' stroke='%23fff' stroke-width='1.2' fill='none'/></svg>")
+    14 14,
+    pointer;
+}
+
+/* Bad Boys — double-size text */
+[data-theme="badboys"] {
+  font-size: 120%;
+}
+
 @layer base {
   body {
     background: var(--ea-bg);
