@@ -7,7 +7,7 @@ export const handler = define.handlers({
     const url = new URL(ctx.req.url);
     const days = Math.min(
       90,
-      Math.max(1, parseInt(url.searchParams.get("days") ?? "30")),
+      Math.max(1, parseInt(url.searchParams.get("days") ?? "30") || 30),
     );
     const campaignId = url.searchParams.get("id") ?? undefined;
 

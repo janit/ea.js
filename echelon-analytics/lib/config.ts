@@ -8,7 +8,7 @@ export const DB_PATH = Deno.env.get("ECHELON_DB_PATH") ?? "./echelon.db";
 export const SECRET = Deno.env.get("ECHELON_SECRET") ?? "";
 export const RETENTION_DAYS = parseInt(
   Deno.env.get("ECHELON_RETENTION_DAYS") ?? "90",
-);
+) || 90;
 
 export const SUSPECT_COUNTRIES = new Set(
   (Deno.env.get("ECHELON_SUSPECT_COUNTRIES") ?? "CN")
@@ -33,11 +33,17 @@ export const CHALLENGE_WINDOW_MINUTES = parseInt(
 );
 
 // Buffered writer intervals (milliseconds)
-export const VIEW_FLUSH_MS = parseInt(
-  Deno.env.get("ECHELON_VIEW_FLUSH_MS") ?? "15000",
+export const VIEW_FLUSH_MS = Math.max(
+  1000,
+  parseInt(
+    Deno.env.get("ECHELON_VIEW_FLUSH_MS") ?? "15000",
+  ) || 15000,
 ); // default 15s
-export const EVENT_FLUSH_MS = parseInt(
-  Deno.env.get("ECHELON_EVENT_FLUSH_MS") ?? "10000",
+export const EVENT_FLUSH_MS = Math.max(
+  1000,
+  parseInt(
+    Deno.env.get("ECHELON_EVENT_FLUSH_MS") ?? "10000",
+  ) || 10000,
 ); // default 10s
 
 // Allowed origins/sites for tracking — comma-separated list of domains
@@ -127,6 +133,13 @@ export function constantTimeEquals(a: string, b: string): boolean {
 /** Validate a site ID: max 64 chars, alphanumeric + ._-  Defaults to "default". */
 export function validateSiteId(raw: string): string {
   return raw.length <= 64 && /^[a-zA-Z0-9._-]+$/.test(raw) ? raw : "default";
+}
+
+/** Strict site ID validation for API routes — returns null for invalid IDs. */
+export function validateSiteIdStrict(raw: string): string | null {
+  return raw.length > 0 && raw.length <= 64 && /^[a-zA-Z0-9._-]+$/.test(raw)
+    ? raw
+    : null;
 }
 
 // Allowed site IDs — comma-separated allowlist.

@@ -8,7 +8,7 @@ export const handler = define.handlers({
 
     if (!viewId && !eventId) {
       return Response.json(
-        { error: "view_id or event_id required" },
+        { error: "missing_param", message: "view_id or event_id required" },
         { status: 400 },
       );
     }
@@ -22,11 +22,21 @@ export const handler = define.handlers({
         viewId,
       );
       if (!row) {
-        return Response.json({ error: "Not found" }, { status: 404 });
+        return Response.json({ error: "not_found", message: "Not found" }, {
+          status: 404,
+        });
+      }
+      let detail = null;
+      if (row.bot_score_detail) {
+        try {
+          detail = JSON.parse(row.bot_score_detail);
+        } catch {
+          detail = {};
+        }
       }
       return Response.json({
         score: row.bot_score,
-        detail: row.bot_score_detail ? JSON.parse(row.bot_score_detail) : null,
+        detail,
       });
     }
 
@@ -38,11 +48,21 @@ export const handler = define.handlers({
       eventId!,
     );
     if (!row) {
-      return Response.json({ error: "Not found" }, { status: 404 });
+      return Response.json({ error: "not_found", message: "Not found" }, {
+        status: 404,
+      });
+    }
+    let detail = null;
+    if (row.bot_score_detail) {
+      try {
+        detail = JSON.parse(row.bot_score_detail);
+      } catch {
+        detail = {};
+      }
     }
     return Response.json({
       score: row.bot_score,
-      detail: row.bot_score_detail ? JSON.parse(row.bot_score_detail) : null,
+      detail,
     });
   },
 });

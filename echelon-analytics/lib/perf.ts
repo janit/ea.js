@@ -71,26 +71,6 @@ export async function queryMetrics(
   );
 }
 
-/** Get the latest value for each distinct metric in a category. */
-export async function getLatestByCategory(
-  db: DbAdapter,
-  category: string,
-): Promise<PerfMetricRow[]> {
-  return await db.query<PerfMetricRow>(
-    `SELECT p.id, p.recorded_at, p.commit_hash, p.branch, p.category, p.metric, p.value, p.unit, p.metadata
-     FROM perf_metrics p
-     INNER JOIN (
-       SELECT metric, MAX(recorded_at) AS max_ts
-       FROM perf_metrics
-       WHERE category = ?
-       GROUP BY metric
-     ) latest ON p.metric = latest.metric AND p.recorded_at = latest.max_ts AND p.category = ?
-     ORDER BY p.metric`,
-    category,
-    category,
-  );
-}
-
 /** Get trend data: last N values per metric for sparkline rendering. */
 export async function getTrends(
   db: DbAdapter,

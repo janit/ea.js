@@ -13,15 +13,26 @@ export const handler = define.handlers({
   async POST(ctx) {
     if (DEBUG) {
       return Response.json(
-        { error: "Debug is locked by ECHELON_DEBUG env variable" },
+        {
+          error: "locked",
+          message: "Debug is locked by ECHELON_DEBUG env variable",
+        },
         { status: 409 },
       );
     }
 
-    const body = await ctx.req.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await ctx.req.json();
+    } catch {
+      return Response.json(
+        { error: "invalid_body", message: "Invalid JSON body" },
+        { status: 400 },
+      );
+    }
     if (typeof body.enabled !== "boolean") {
       return Response.json(
-        { error: "Missing boolean 'enabled' field" },
+        { error: "invalid_body", message: "Missing boolean 'enabled' field" },
         { status: 400 },
       );
     }

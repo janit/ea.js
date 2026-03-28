@@ -9,7 +9,10 @@ export const handler = define.handlers({
     if (isRateLimited(ctx.req)) {
       return new Response("// rate limited", {
         status: 429,
-        headers: { "Content-Type": "application/javascript" },
+        headers: {
+          "Content-Type": "application/javascript",
+          "Cache-Control": "no-store",
+        },
       });
     }
 

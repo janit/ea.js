@@ -136,13 +136,20 @@ export async function getOverview(
 
   const totals = await db.queryOne<{
     visits: number;
-    unique_visitors: number;
     avg_interaction_ms: number;
   }>(
     `SELECT COALESCE(SUM(visits), 0) AS visits,
-            COALESCE(SUM(unique_visitors), 0) AS unique_visitors,
             COALESCE(CAST(AVG(avg_interaction_ms) AS INTEGER), 0) AS avg_interaction_ms
      FROM visitor_views_daily WHERE site_id = ? AND date >= ?`,
+    siteId,
+    cutoff,
+  );
+
+  const rollupVisitors = await db.queryOne<{ unique_visitors: number }>(
+    `SELECT COALESCE(SUM(uv), 0) AS unique_visitors
+     FROM (SELECT date, MAX(unique_visitors) AS uv
+           FROM visitor_views_daily WHERE site_id = ? AND date >= ?
+           GROUP BY date)`,
     siteId,
     cutoff,
   );
@@ -257,7 +264,7 @@ export async function getOverview(
     site_id: siteId,
     period_days: days,
     visits: (totals?.visits ?? 0) + (todayTotals?.visits ?? 0),
-    unique_visitors: (totals?.unique_visitors ?? 0) +
+    unique_visitors: (rollupVisitors?.unique_visitors ?? 0) +
       (todayTotals?.unique_visitors ?? 0),
     avg_interaction_ms: totals?.avg_interaction_ms ?? 0,
     top_paths: topPaths,

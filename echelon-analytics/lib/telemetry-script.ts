@@ -45,10 +45,10 @@ return"/"+(parts.join("/")||"dashboard");
 
 // ── Screen bucketing (prevents fingerprinting) ───────────────────────────────
 var buckets=[360,768,1024,1280,1440,1920];
-function bucketScreen(){
-var w=screen.width,best=buckets[0];
+function bucket(v){
+var best=buckets[0];
 for(var i=1;i<buckets.length;i++){
-if(Math.abs(buckets[i]-w)<Math.abs(best-w))best=buckets[i];
+if(Math.abs(buckets[i]-v)<Math.abs(best-v))best=buckets[i];
 }
 return best;
 }
@@ -108,11 +108,12 @@ xhr.send(j);
 // ── 1. Pageview beacon (anonymized, interaction-gated) ───────────────────────
 var t0=Date.now(),fired=0;
 var p=anonPath();
-var sw=bucketScreen();
+var sw=bucket(screen.width);
+var sh=bucket(screen.height);
 
 function sendBeaconImg(){
 // No cookies (ck), no referrer (ref), no UTM, no real URL
-var url=EP+"/b.gif?s="+SITE+"&p="+btoa(p)+"&sid="+sid+"&sw="+sw+"&sh="+sw+
+var url=EP+"/b.gif?s="+SITE+"&p="+btoa(p)+"&sid="+sid+"&sw="+sw+"&sh="+sh+
 "&_v="+(Date.now()-t0)+(tok?"&tok="+tok:"");
 new Image().src=url;
 }

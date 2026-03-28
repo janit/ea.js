@@ -516,6 +516,18 @@ export function shouldAnonymize(siteId: string): boolean {
   return ANONYMIZE_SITES.has(siteId.toLowerCase());
 }
 
+async function anonymizePath(path: string): Promise<string> {
+  const segments = path.split("/").filter(Boolean);
+  if (segments.length === 0) return "/";
+  const anonSegments = await Promise.all(
+    segments.map(async (seg) => {
+      const hash = await hmacHex(seg);
+      return OPERATION_CODENAMES[pickIndex(hash, OPERATION_CODENAMES.length)];
+    }),
+  );
+  return "/" + anonSegments.join("/");
+}
+
 export async function anonymizeView(record: ViewRecord): Promise<ViewRecord> {
   const vidHash = await hmacHex(record.visitor_id);
   const sidHash = record.session_id ? await hmacHex(record.session_id) : null;
@@ -527,6 +539,7 @@ export async function anonymizeView(record: ViewRecord): Promise<ViewRecord> {
 
   return {
     ...record,
+    path: await anonymizePath(record.path),
     visitor_id: vidHash.slice(0, 16),
     session_id: sidHash
       ? FISHERMEN[pickIndex(sidHash, FISHERMEN.length)]

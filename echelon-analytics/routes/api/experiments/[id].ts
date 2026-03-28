@@ -8,6 +8,13 @@ const VALID_STATUSES = new Set([
   "archived",
 ]);
 
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  draft: ["active"],
+  active: ["paused", "completed"],
+  paused: ["active"],
+  completed: ["archived"],
+};
+
 export const handler = define.handlers({
   async PATCH(ctx) {
     const db = ctx.state.db;
@@ -36,14 +43,27 @@ export const handler = define.handlers({
     }
 
     // Verify experiment exists
-    const existing = await db.queryOne<{ experiment_id: string }>(
-      `SELECT experiment_id FROM experiments WHERE experiment_id = ?`,
+    const existing = await db.queryOne<
+      { experiment_id: string; status: string }
+    >(
+      `SELECT experiment_id, status FROM experiments WHERE experiment_id = ?`,
       expId,
     );
     if (!existing) {
       return Response.json(
         { error: "not_found", message: "Experiment not found" },
         { status: 404 },
+      );
+    }
+
+    const allowed = VALID_TRANSITIONS[existing.status] ?? [];
+    if (!allowed.includes(status as string)) {
+      return Response.json(
+        {
+          error: "invalid_transition",
+          message: `Cannot transition from '${existing.status}' to '${status}'`,
+        },
+        { status: 400 },
       );
     }
 

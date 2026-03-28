@@ -1,7 +1,4 @@
-/**
- * Database adapter interface for SQLite (and future MariaDB/Postgres support).
- * All SQL uses `?` placeholders — future adapters auto-convert to `$1, $2, ...`.
- */
+/** Database adapter interface for SQLite. */
 
 export type SQLParam = string | number | null | bigint | Uint8Array | boolean;
 
@@ -33,5 +30,5 @@ export interface DbAdapter {
   close(): Promise<void>;
 
   /** The SQL dialect this adapter speaks. */
-  readonly dialect: "sqlite" | "postgres";
+  readonly dialect: "sqlite";
 }

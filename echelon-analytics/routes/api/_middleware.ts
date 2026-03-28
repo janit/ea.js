@@ -4,7 +4,6 @@ import {
   constantTimeEquals,
   PUBLIC_MODE,
   SECRET,
-  TRUST_PROXY,
 } from "../../lib/config.ts";
 import { getSession } from "../../lib/session.ts";
 import { getCookie } from "../../lib/cookie.ts";
@@ -64,12 +63,13 @@ export const handler = define.handlers([
         // protocol mismatches (http internal vs https external) don't affect
         // the host comparison and the Host header is always forwarded.
         const method = ctx.req.method;
-        if (method === "POST" || method === "PATCH" || method === "DELETE") {
+        if (
+          method === "POST" || method === "PUT" || method === "PATCH" ||
+          method === "DELETE"
+        ) {
           const origin = ctx.req.headers.get("origin");
           const referer = ctx.req.headers.get("referer");
-          const requestHost =
-            (TRUST_PROXY && ctx.req.headers.get("x-forwarded-host")) ||
-            ctx.req.headers.get("host") || url.host;
+          const requestHost = ctx.req.headers.get("host") || url.host;
 
           let originMatch = false;
           if (origin) {

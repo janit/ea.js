@@ -49,7 +49,6 @@ export async function setTelemetryChoice(
   markTelemetryStale();
 }
 
-/** Invalidate the cached state so the next request re-reads from DB. */
-export function markTelemetryStale(): void {
+function markTelemetryStale(): void {
   cached = null;
 }

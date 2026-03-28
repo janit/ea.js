@@ -39,7 +39,7 @@ export async function rollupDay(
   const start = Date.now();
 
   const result = await db.run(
-    `INSERT OR REPLACE INTO visitor_views_daily
+    `INSERT OR IGNORE INTO visitor_views_daily
       (site_id, date, device_type, country_code, is_returning,
        visits, unique_visitors, avg_interaction_ms)
     SELECT
@@ -52,8 +52,8 @@ export async function rollupDay(
       COUNT(DISTINCT visitor_id),
       COALESCE(CAST(AVG(CASE WHEN interaction_ms > 0 THEN interaction_ms END) AS INTEGER), 0)
     FROM visitor_views
-    WHERE created_at >= ? || 'T00:00:00Z'
-      AND created_at < date(?, '+1 day') || 'T00:00:00Z'
+    WHERE created_at >= ? || 'T00:00:00.000Z'
+      AND created_at < date(?, '+1 day') || 'T00:00:00.000Z'
       AND bot_score < 50
       AND NOT EXISTS (
         SELECT 1 FROM excluded_visitors ev
@@ -94,12 +94,12 @@ export async function purgeExpiredData(
   const dailyCutoff = daysAgoUTC(DAILY_ROLLUP_RETENTION_DAYS);
 
   const views = await db.run(
-    `DELETE FROM visitor_views WHERE created_at < ? || 'T00:00:00Z'`,
+    `DELETE FROM visitor_views WHERE created_at < ? || 'T00:00:00.000Z'`,
     rawCutoff,
   );
 
   const events = await db.run(
-    `DELETE FROM semantic_events WHERE created_at < ? || 'T00:00:00Z'`,
+    `DELETE FROM semantic_events WHERE created_at < ? || 'T00:00:00.000Z'`,
     rawCutoff,
   );
 
@@ -109,7 +109,7 @@ export async function purgeExpiredData(
   );
 
   const perf = await db.run(
-    `DELETE FROM perf_metrics WHERE recorded_at < ? || 'T00:00:00Z'`,
+    `DELETE FROM perf_metrics WHERE recorded_at < ? || 'T00:00:00.000Z'`,
     rawCutoff,
   );
 

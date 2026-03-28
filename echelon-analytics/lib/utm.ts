@@ -11,8 +11,6 @@ let refreshedAt = 0;
 
 export async function refreshUtmCampaigns(db: DbAdapter): Promise<void> {
   if (Date.now() - refreshedAt < 60_000) return;
-  // Prevent concurrent re-entry during await
-  refreshedAt = Date.now();
   const rows = await db.query<{ utm_campaign: string; site_id: string }>(
     "SELECT utm_campaign, site_id FROM utm_campaigns WHERE status = 'active'",
   );
@@ -27,6 +25,7 @@ export async function refreshUtmCampaigns(db: DbAdapter): Promise<void> {
   }
   // Atomic swap — readers never see partial state
   campaignCache = newCache;
+  refreshedAt = Date.now();
 }
 
 export function isUtmCampaignActive(

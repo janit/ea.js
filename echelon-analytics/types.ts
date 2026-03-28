@@ -77,6 +77,7 @@ export interface UtmCampaignRow {
 
 export interface BotScoreSignals {
   interactionMs?: number;
+  isSpaNav?: boolean;
   burstCount: number;
   hasAcceptLanguage: boolean;
   hasSecChUa: boolean;

@@ -98,7 +98,7 @@ Parameters randomized per generation:
      - Recompute challenge = HMAC(bucket)
      - Compute expected = solve(challenge + ":" + sid + ":" + siteId)
      - If expected == tok → valid
-3. Scoring: valid = +0, missing = +15, invalid = +25 (added to bot score)
+3. Scoring: valid = +0, missing = +30, invalid = +40 (added to bot score)
 
 ## Standalone Build Tool
 

@@ -14,15 +14,26 @@ export const handler = define.handlers({
   async POST(ctx) {
     if (TELEMETRY_OVERRIDE !== null) {
       return Response.json(
-        { error: "Telemetry is locked by ECHELON_TELEMETRY env variable" },
+        {
+          error: "locked",
+          message: "Telemetry is locked by ECHELON_TELEMETRY env variable",
+        },
         { status: 409 },
       );
     }
 
-    const body = await ctx.req.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await ctx.req.json();
+    } catch {
+      return Response.json(
+        { error: "invalid_body", message: "Invalid JSON body" },
+        { status: 400 },
+      );
+    }
     if (typeof body.optin !== "boolean") {
       return Response.json(
-        { error: "Missing boolean 'optin' field" },
+        { error: "invalid_body", message: "Missing boolean 'optin' field" },
         { status: 400 },
       );
     }

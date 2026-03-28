@@ -17,6 +17,7 @@ export class SqliteAdapter implements DbAdapter {
   readonly dialect = "sqlite" as const;
   private db: DatabaseSync;
   private txDepth = 0;
+  private txQueue: Promise<unknown> = Promise.resolve();
 
   constructor(db: DatabaseSync) {
     this.db = db;
@@ -47,7 +48,19 @@ export class SqliteAdapter implements DbAdapter {
     return Promise.resolve();
   }
 
-  async transaction<T>(fn: (tx: DbAdapter) => Promise<T>): Promise<T> {
+  transaction<T>(fn: (tx: DbAdapter) => Promise<T>): Promise<T> {
+    if (this.txDepth > 0) {
+      return this._runTransaction(fn);
+    }
+    const run = () => this._runTransaction(fn);
+    const queued = this.txQueue.then(run, run);
+    this.txQueue = queued.then(() => {}, () => {});
+    return queued;
+  }
+
+  private async _runTransaction<T>(
+    fn: (tx: DbAdapter) => Promise<T>,
+  ): Promise<T> {
     const depth = this.txDepth++;
     const savepoint = `sp_${depth}`;
     if (depth === 0) {

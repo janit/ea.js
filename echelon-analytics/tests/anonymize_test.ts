@@ -1,4 +1,4 @@
-import { assertEquals, assertNotEquals } from "@std/assert";
+import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {
   anonymizeEvent,
   anonymizeView,
@@ -132,11 +132,19 @@ Deno.test("anonymizeView — deterministic (same input → same output)", async 
 Deno.test("anonymizeView — preserves non-anonymized fields", async () => {
   const original = baseView();
   const anon = await anonymizeView(original);
-  assertEquals(anon.path, original.path);
   assertEquals(anon.site_id, original.site_id);
   assertEquals(anon.interaction_ms, original.interaction_ms);
   assertEquals(anon.bot_score, original.bot_score);
   assertEquals(anon.is_pwa, original.is_pwa);
+});
+
+Deno.test("anonymizeView — anonymizes path", async () => {
+  const original = baseView({ path: "/user/john@email.com/profile" });
+  const anon = await anonymizeView(original);
+  assertNotEquals(anon.path, original.path);
+  assert(anon.path.startsWith("/"));
+  const anon2 = await anonymizeView(original);
+  assertEquals(anon.path, anon2.path);
 });
 
 Deno.test("anonymizeView — maps screen size to terminal resolution", async () => {

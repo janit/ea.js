@@ -71,13 +71,17 @@ export const handler = define.handlers({
         );
 
         for (const v of variantList) {
+          const weight = Number(v.weight);
+          if (!Number.isFinite(weight) || weight <= 0) {
+            throw new Error("Invalid variant weight");
+          }
           await tx.run(
             `INSERT INTO experiment_variants (experiment_id, variant_id, name, weight, is_control, config)
              VALUES (?, ?, ?, ?, ?, ?)`,
             expId,
             String(v.variant_id ?? "").slice(0, 128),
             String(v.name ?? "").slice(0, 256),
-            Math.max(1, Number(v.weight) || 50),
+            weight,
             v.is_control ? 1 : 0,
             v.config ? JSON.stringify(v.config).slice(0, 4096) : null,
           );
@@ -85,7 +89,16 @@ export const handler = define.handlers({
       });
 
       return Response.json({ created: expId }, { status: 201 });
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.message === "Invalid variant weight") {
+        return Response.json(
+          {
+            error: "invalid_payload",
+            message: "Variant weight must be a finite positive number",
+          },
+          { status: 400 },
+        );
+      }
       return Response.json(
         { error: "conflict", message: "Experiment creation failed" },
         { status: 409 },

@@ -778,7 +778,7 @@ ECHELON_TELEMETRY=true
 
 ## Overview
 
-217 server-side tests and 14 browser E2E tests. Tests are integrated into `deno task check` and run automatically before every tagged release via scripts/tag-release.sh.
+236 server-side tests and 14 browser E2E tests. Tests are integrated into `deno task check` and run automatically before every tagged release via scripts/tag-release.sh.
 
 ## Running Tests
 
@@ -795,26 +795,26 @@ Tests live in echelon-analytics/tests/:
 | File | Module Under Test | Cases |
 |------|-------------------|-------|
 | _helpers.ts | Shared test infrastructure (in-memory DB, fixture inserters) | — |
-| bot-score_test.ts | lib/bot-score.ts — UA detection, scoring, burst, PoW penalties | 25 |
-| pagination_test.ts | lib/pagination.ts — offset, clamping, totalPages | 6 |
-| config_test.ts | lib/config.ts — constantTimeEquals, validateSiteId | 7 |
-| cookie_test.ts | lib/cookie.ts — getCookie, getRequestCookie | 8 |
-| anonymize_test.ts | lib/anonymize.ts — HMAC hashing, fictional names, determinism | 16 |
-| challenge_test.ts | lib/challenge.ts — tokenPenalty, generateChallenge, verifyToken | 8 |
-| session_test.ts | lib/session.ts — create, get, delete, expiry, prune | 8 |
-| rate-limit_test.ts | lib/rate-limit.ts — isRateLimited | 2 |
-| request-stats_test.ts | lib/request-stats.ts — recordRequest, getRequestStats | 10 |
-| buffered-writer_test.ts | lib/buffered-writer.ts — push, flush, retry, overflow | 7 |
-| db-adapter_test.ts | lib/db/sqlite-adapter.ts — query, run, transactions, rollback | 11 |
+| bot-score_test.ts | lib/bot-score.ts — UA detection, scoring, burst, PoW penalties | 44 |
+| anonymize_test.ts | lib/anonymize.ts — HMAC hashing, fictional names, determinism | 25 |
 | stats_test.ts | lib/stats.ts — overview, realtime, campaigns, experiments, dashboard | 16 |
-| maintenance_test.ts | lib/maintenance.ts — rollup, purge, bot exclusion, idempotency | 9 |
-| root-middleware_test.ts | routes/_middleware.ts — CORS, origin validation, referrer checks | 11 |
+| public-mode_test.ts | Cross-cutting PUBLIC_MODE lockdown and CSRF logic | 16 |
+| events-endpoint_test.ts | routes/e.ts + lib/events-endpoint.ts — event POST, validation | 13 |
+| session_test.ts | lib/session.ts — create, get, delete, expiry, prune | 12 |
+| db-adapter_test.ts | lib/db/sqlite-adapter.ts — query, run, transactions, rollback | 12 |
 | api-middleware_test.ts | routes/api/_middleware.ts — auth, CSRF, PUBLIC_MODE, health bypass | 12 |
-| beacon_test.ts | routes/b.gif.ts + lib/beacon.ts — pixel beacon, bot scoring, SPA | 7 |
-| events-endpoint_test.ts | routes/e.ts + lib/events-endpoint.ts — event POST, validation | 12 |
-| public-mode_test.ts | Cross-cutting PUBLIC_MODE lockdown and CSRF logic | 15 |
-| robots_test.ts | routes/robots.txt.ts — public vs non-public mode | 3 |
+| root-middleware_test.ts | routes/_middleware.ts — CORS, origin validation, referrer checks | 11 |
+| challenge_test.ts | lib/challenge.ts — tokenPenalty, generateChallenge, verifyToken | 11 |
+| request-stats_test.ts | lib/request-stats.ts — recordRequest, getRequestStats | 10 |
+| maintenance_test.ts | lib/maintenance.ts — rollup, purge, bot exclusion, idempotency | 9 |
+| config_test.ts | lib/config.ts — constantTimeEquals, validateSiteId | 8 |
+| cookie_test.ts | lib/cookie.ts — getCookie, getRequestCookie | 8 |
+| beacon_test.ts | routes/b.gif.ts + lib/beacon.ts — pixel beacon, bot scoring, SPA | 8 |
+| buffered-writer_test.ts | lib/buffered-writer.ts — push, flush, retry, overflow | 7 |
+| pagination_test.ts | lib/pagination.ts — offset, clamping, totalPages | 6 |
 | sitemap_test.ts | routes/sitemap.xml.ts — admin URLs in public mode | 3 |
+| robots_test.ts | routes/robots.txt.ts — public vs non-public mode | 3 |
+| rate-limit_test.ts | lib/rate-limit.ts — isRateLimited | 2 |
 
 ## E2E Tests
 

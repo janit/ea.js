@@ -16,7 +16,10 @@ let initPromise: Promise<DbAdapter> | null = null;
 export function initDb(): Promise<DbAdapter> {
   if (db) return Promise.resolve(db);
   if (initPromise) return initPromise;
-  initPromise = _initDb();
+  initPromise = _initDb().catch((e) => {
+    initPromise = null;
+    throw e;
+  });
   return initPromise;
 }
 
@@ -37,6 +40,7 @@ async function _initDb(): Promise<DbAdapter> {
   raw.exec("PRAGMA foreign_keys = ON");
   raw.exec("PRAGMA cache_size = -32000"); // 32 MB page cache
   raw.exec("PRAGMA temp_store = MEMORY");
+  raw.exec("PRAGMA auto_vacuum = INCREMENTAL");
 
   // Create schema
   raw.exec(SCHEMA_SQL);
@@ -159,13 +163,6 @@ async function migrate(adapter: DbAdapter): Promise<void> {
       "[echelon] Migration: added bot_score_detail to semantic_events",
     );
   }
-}
-
-export function getDb(): DbAdapter {
-  if (!db) {
-    throw new Error("[echelon] Database not initialized — call initDb() first");
-  }
-  return db;
 }
 
 export async function closeDb(): Promise<void> {

@@ -17,7 +17,7 @@ Built with Deno, Fresh 2.2.0, Preact, SQLite (WAL mode), Tailwind CSS v4, and Vi
 ```
 cd echelon-analytics
 deno task dev
-deno task test       # Run 217 server-side tests
+deno task test       # Run 236 server-side tests
 deno task test:e2e   # Browser E2E tests (requires Chromium)
 ```
 
@@ -68,7 +68,7 @@ Sites in `ECHELON_ANONYMIZE_SITES` get deterministic pre-storage anonymization: 
 
 ## Testing
 
-217 server-side tests + 14 browser E2E tests. Covers bot scoring, PoW, sessions, rate limiting, buffered writes, DB, stats, middleware (auth, CSRF, CORS, CSP), endpoints, public mode, and maintenance. Tests run before every tagged release.
+236 server-side tests + 14 browser E2E tests. Covers bot scoring, PoW, sessions, rate limiting, buffered writes, DB, stats, middleware (auth, CSRF, CORS, CSP), endpoints, public mode, and maintenance. Tests run before every tagged release.
 
 ## Public Dashboard
 

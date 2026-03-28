@@ -1,10 +1,16 @@
 import { define } from "../../../utils.ts";
-import { validateSiteId } from "../../../lib/config.ts";
+import { validateSiteIdStrict } from "../../../lib/config.ts";
 import { markConsentCssStale } from "../../../lib/consent-css.ts";
 
 export const handler = define.handlers({
   async GET(ctx) {
-    const siteId = validateSiteId(decodeURIComponent(ctx.params.id));
+    const siteId = validateSiteIdStrict(decodeURIComponent(ctx.params.id));
+    if (!siteId) {
+      return Response.json(
+        { error: "invalid_site_id", message: "Invalid site ID" },
+        { status: 400 },
+      );
+    }
     const row = await ctx.state.db.queryOne<{ consent_css: string | null }>(
       `SELECT consent_css FROM site_settings WHERE site_id = ?`,
       siteId,
@@ -17,7 +23,13 @@ export const handler = define.handlers({
 
   async PATCH(ctx) {
     const db = ctx.state.db;
-    const siteId = validateSiteId(decodeURIComponent(ctx.params.id));
+    const siteId = validateSiteIdStrict(decodeURIComponent(ctx.params.id));
+    if (!siteId) {
+      return Response.json(
+        { error: "invalid_site_id", message: "Invalid site ID" },
+        { status: 400 },
+      );
+    }
 
     let body: Record<string, unknown>;
     try {
@@ -38,8 +50,9 @@ export const handler = define.handlers({
     const css = rawCss
       ? rawCss
         .replace(/\\/g, "")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(
-          /url[\s\t\r\n]*\(|image[\s\t\r\n]*\(|image-set[\s\t\r\n]*\(|@import\b|@font-face\b|@keyframes\b|expression[\s]*\(|behavior[\s]*:|javascript[\s]*:|-moz-binding[\s]*:/gi,
+          /url[\s\S]*?\(|image[\s\S]*?\(|image-set[\s\S]*?\(|-webkit-image-set[\s\S]*?\(|element[\s\S]*?\(|paint[\s\S]*?\(|@import\b|@font-face\b|@keyframes\b|expression[\s]*\(|behavior[\s]*:|javascript[\s]*:|-moz-binding[\s]*:/gi,
           "/* blocked */",
         )
       : null;

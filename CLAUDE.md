@@ -46,9 +46,10 @@ deno task update
 ### Testing
 
 Tests live in `tests/` with shared helpers in `tests/_helpers.ts`. E2E browser
-tests (using `@astral/astral`) are in `tests/e2e/` and require Chromium. The
-`check` task includes server-side tests, and `scripts/tag-release.sh` runs
-`deno task check` before tagging — so tests gate every release.
+tests (using `@astral/astral`) are in `tests/e2e/` and require Chromium.
+`auth/`, `data/`, `tracker/`, `tracking/`). The `check` task includes
+server-side tests, and `scripts/tag-release.sh` runs `deno task check` before
+tagging — so tests gate every release.
 
 ## Architecture
 
@@ -57,7 +58,8 @@ tests (using `@astral/astral`) are in `tests/e2e/` and require Chromium. The
 Deno + Fresh 2.2.0 (file-system routing with Preact islands). Vite 7 for builds.
 Tailwind CSS v4 configured via `@tailwindcss/vite` plugin (config lives in
 `assets/styles.css`, not a tailwind config file). Dark terminal aesthetic:
-green-on-black, monospace font throughout.
+Norway-inspired professional palette (navy/white/red), Inter sans-serif font.
+Alternative themes available: Commodore 64 (`c64`), Bad Boys (`badboys`).
 
 ### Request Flow
 
@@ -75,9 +77,10 @@ instances that batch-flush to SQLite every 10–15 seconds.
   generation (`challenge.ts`, `challenge-wasm.ts`), buffered DB writes
   (`buffered-writer.ts`), auth (`auth.ts`, `session.ts`), stats queries
   (`stats.ts`), maintenance/rollups (`maintenance.ts`).
-- **`lib/db/`** — SQLite layer: `database.ts` (singleton + migrations),
-  `schema.ts` (DDL), `sqlite-adapter.ts` (concrete adapter using `node:sqlite`),
-  `adapter.ts` (interface).
+- **`lib/db/`** — SQLite layer: `database.ts` (singleton + migrations, error
+  retry on init), `schema.ts` (DDL), `sqlite-adapter.ts` (concrete adapter
+  using `node:sqlite`, serialized transactions via queue), `adapter.ts`
+  (interface).
 - **`islands/`** — Client-hydrated Preact components (charts, forms, realtime
   panel). Use `@preact/signals` for reactivity.
 - **`components/`** — Server-only components (admin nav shell with live stats
@@ -87,16 +90,19 @@ instances that batch-flush to SQLite every 10–15 seconds.
 
 Single SQLite database (WAL mode). No ORM — raw SQL queries throughout. Writes
 are batched via `BufferedWriter` (generic class in `lib/buffered-writer.ts`).
-Two writers: one for `visitor_views`, one for `semantic_events`. Daily rollup at
-03:00 UTC aggregates raw views into `visitor_views_daily` and purges old data
-(90-day default retention).
+Two writers: one for `visitor_views`, one for `semantic_events`. The `stop()`
+method drains any remaining buffered records before shutdown. Daily rollup at
+03:00 UTC aggregates raw views into `visitor_views_daily` (using INSERT OR
+IGNORE to preserve existing rollup data) and purges old data (90-day default
+retention).
 
 ### Authentication
 
 Two modes (can coexist): Bearer token (`ECHELON_SECRET` env var) and
 username/password (PBKDF2-SHA256, in-memory sessions with 24h TTL). Auth
 middleware at `routes/admin/_middleware.ts` and `routes/api/_middleware.ts`.
-CSRF protection on cookie-authenticated mutating requests.
+CSRF protection on cookie-authenticated mutating requests (POST, PUT, PATCH,
+DELETE) via Origin/Referer header validation against Host.
 
 ### Anti-Bot System
 
@@ -104,6 +110,14 @@ CSRF protection on cookie-authenticated mutating requests.
 (rotates every 6 hours) and per-minute PoW challenges. `lib/bot-score.ts` scores
 every request using PoW result, timing, geo, headers, burst detection. Scores ≥
 50 are excluded from rollups. Known bot UAs are dropped before scoring.
+
+### API Validation
+
+API endpoints use `validateSiteIdStrict()` which returns null for invalid site
+IDs (tracking endpoints use the lenient `validateSiteId()` that falls back to
+"default"). Experiments enforce a state machine: draft → active → paused/completed,
+paused → active, completed → archived. Variant weights must be finite positive numbers. Error responses
+follow `{ error: "code", message: "text" }` format.
 
 ### Single-Process Constraint
 
@@ -126,6 +140,7 @@ instance (local, remote, Docker, cloud). Requires `ECHELON_URL` env var; uses
 ECHELON_URL=https://ea.islets.app deno task mcp
 ```
 
-Tools: `analytics_overview`, `analytics_realtime`, `analytics_campaigns`,
-`analytics_campaign_detail`, `analytics_experiments`, `analytics_dashboard`.
-Auto-discovered by Claude Code via `.claude/settings.json`.
+Tools (9 total, all read-only): `analytics_overview`, `analytics_realtime`,
+`analytics_campaigns`, `analytics_campaign_detail`, `analytics_experiments`,
+`analytics_dashboard`, `analytics_campaign_events`, `list_campaigns`,
+`list_experiments`. Auto-discovered by Claude Code via `.claude/settings.json`.

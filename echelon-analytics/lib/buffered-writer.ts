@@ -59,7 +59,12 @@ export class BufferedWriter<T> {
     this.startTimer = null;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
-    await this.flush(db);
+    let prev = this.buffer.length;
+    while (this.buffer.length > 0) {
+      await this.flush(db);
+      if (this.buffer.length >= prev) break;
+      prev = this.buffer.length;
+    }
   }
 
   private flush(db: DbAdapter): Promise<void> {

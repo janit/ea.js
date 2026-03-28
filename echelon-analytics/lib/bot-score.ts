@@ -189,8 +189,8 @@ export function computeBotScoreWithDetail(
     if (cfPenalty > 0) detail.cf = cfPenalty;
   }
 
-  // Low interaction time — beacon gate is 800ms
-  if (signals.interactionMs !== undefined) {
+  // Low interaction time — beacon gate is 800ms (skip for SPA navigations)
+  if (signals.interactionMs !== undefined && !signals.isSpaNav) {
     if (signals.interactionMs < 850) {
       detail.timing = 20;
     } else if (signals.interactionMs < 1000) {

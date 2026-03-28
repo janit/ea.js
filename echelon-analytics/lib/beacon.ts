@@ -327,6 +327,7 @@ export async function handleBeacon(
     const cfSignals = extractCloudflareSignals(req);
     const scoreResult = computeBotScoreWithDetail({
       interactionMs,
+      isSpaNav,
       burstCount,
       hasAcceptLanguage: req.headers.has("accept-language"),
       hasSecChUa: req.headers.has("sec-ch-ua"),

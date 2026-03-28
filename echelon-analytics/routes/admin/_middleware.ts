@@ -4,7 +4,6 @@ import {
   constantTimeEquals,
   PUBLIC_MODE,
   SECRET,
-  TRUST_PROXY,
 } from "../../lib/config.ts";
 import { getSession } from "../../lib/session.ts";
 import { validateSiteId } from "../../lib/config.ts";
@@ -25,8 +24,7 @@ export const handler = define.handlers([
 
     // Login/logout pages are always accessible
     if (
-      url.pathname === "/admin/login" ||
-      url.pathname === "/admin/logout"
+      url.pathname === "/admin/login"
     ) {
       return ctx.next();
     }
@@ -65,12 +63,13 @@ export const handler = define.handlers([
         // Compare origin *host* against the request Host header — works
         // behind any reverse proxy without needing x-forwarded-proto.
         const method = ctx.req.method;
-        if (method === "POST" || method === "PATCH" || method === "DELETE") {
+        if (
+          method === "POST" || method === "PUT" || method === "PATCH" ||
+          method === "DELETE"
+        ) {
           const origin = ctx.req.headers.get("origin");
           const referer = ctx.req.headers.get("referer");
-          const requestHost =
-            (TRUST_PROXY && ctx.req.headers.get("x-forwarded-host")) ||
-            ctx.req.headers.get("host") || url.host;
+          const requestHost = ctx.req.headers.get("host") || url.host;
 
           let originMatch = false;
           if (origin) {
