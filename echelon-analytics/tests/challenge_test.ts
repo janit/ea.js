@@ -13,12 +13,12 @@ Deno.test("tokenPenalty — valid → 0", () => {
   assertEquals(tokenPenalty("valid"), 0);
 });
 
-Deno.test("tokenPenalty — missing → 30", () => {
-  assertEquals(tokenPenalty("missing"), 30);
+Deno.test("tokenPenalty — missing → 50 (hard gate)", () => {
+  assertEquals(tokenPenalty("missing"), 50);
 });
 
-Deno.test("tokenPenalty — invalid → 40", () => {
-  assertEquals(tokenPenalty("invalid"), 40);
+Deno.test("tokenPenalty — invalid → 50 (hard gate)", () => {
+  assertEquals(tokenPenalty("invalid"), 50);
 });
 
 // ── generateChallenge ───────────────────────────────────────────────────────

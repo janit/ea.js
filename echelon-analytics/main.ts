@@ -14,6 +14,8 @@ import {
   startEventWriter,
 } from "./lib/events-endpoint.ts";
 import { scheduleDailyMaintenance } from "./lib/maintenance.ts";
+import { startBotCorrelator, stopBotCorrelator } from "./lib/bot-correlator.ts";
+import { startThreatFeeds, stopThreatFeeds } from "./lib/threat-feeds.ts";
 import { recordRequest } from "./lib/request-stats.ts";
 import { pruneSessions } from "./lib/session.ts";
 import { refreshUtmCampaigns } from "./lib/utm.ts";
@@ -39,6 +41,12 @@ await refreshUtmCampaigns(db);
 // Schedule daily maintenance (rollup + purge + VACUUM at 03:00 UTC)
 scheduleDailyMaintenance(db);
 
+// Start background bot correlator (async fingerprint clustering)
+startBotCorrelator(db);
+
+// Start threat intelligence feeds (async refresh every 6h)
+startThreatFeeds();
+
 // Prune expired sessions every 30 minutes
 setInterval(pruneSessions, 30 * 60 * 1000);
 
@@ -48,6 +56,8 @@ function gracefulShutdown(signal: string) {
   if (_shuttingDown) return;
   _shuttingDown = true;
   console.log(`[echelon] ${signal} received — flushing writers...`);
+  stopBotCorrelator();
+  stopThreatFeeds();
 
   // Hard timeout: force exit to avoid hanging
   const forceTimer = setTimeout(() => {

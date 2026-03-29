@@ -265,6 +265,7 @@ export function tokenPenalty(
   result: "valid" | "missing" | "invalid",
 ): number {
   if (result === "valid") return 0;
-  if (result === "missing") return 30;
-  return 40; // invalid
+  // Missing or invalid PoW = definitive bot signal. Any legitimate
+  // browser that loaded ea.js will have solved the challenge.
+  return 50;
 }

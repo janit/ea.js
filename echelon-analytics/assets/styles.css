@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  /* Norway-inspired palette — dark blue (#002868), white, red (#BA0C2F) */
+  /* Professional palette — dark blue (#002868), white, red (#BA0C2F) */
   --ea-bg: #eef0f5;
   --ea-surface: #f8f9fb;
   --ea-surface-alt: #e4e8ef;

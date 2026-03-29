@@ -9,13 +9,13 @@
 
 **Last updated**: [DATE]
 
-[YOUR COMPANY/PROJECT NAME] ("we", "us", "our") operates [YOUR WEBSITE URL]
-(the "Service"). This policy describes what data we collect, why we collect it,
-how we process it, and your rights regarding that data.
+[YOUR COMPANY/PROJECT NAME] ("we", "us", "our") operates [YOUR WEBSITE URL] (the
+"Service"). This policy describes what data we collect, why we collect it, how
+we process it, and your rights regarding that data.
 
-We use [Echelon Analytics](https://ea.js.org) for self-hosted web analytics.
-All analytics data is processed and stored on our own infrastructure — it is
-never sent to third-party analytics services.
+We use [Echelon Analytics](https://ea.js.org) for self-hosted web analytics. All
+analytics data is processed and stored on our own infrastructure — it is never
+sent to third-party analytics services.
 
 ### 1. Data We Collect
 
@@ -25,23 +25,23 @@ When you visit our Service, we collect anonymous usage data to understand how
 people use the site and to improve the experience. This data **cannot identify
 you personally**.
 
-| Data | Purpose | Example |
-|------|---------|---------|
-| Pages visited | Understand popular content | `/about` |
-| Device type | Optimize for mobile/desktop | `mobile`, `desktop` |
-| Screen resolution | Responsive design testing | `375x812` |
-| Operating system | Browser compatibility | `iOS`, `Android` |
-| Country | Regional content relevance | `FI`, `US` |
-| Referrer origin | Understand traffic sources | `google.com` |
-| Interaction time | Measure engagement quality | `4200ms` |
-| Scroll depth | Understand reading behavior | `75%` |
-| Anonymous visitor ID | Distinguish unique visits | Random 16-character hex code |
+| Data                 | Purpose                     | Example                      |
+| -------------------- | --------------------------- | ---------------------------- |
+| Pages visited        | Understand popular content  | `/about`                     |
+| Device type          | Optimize for mobile/desktop | `mobile`, `desktop`          |
+| Screen resolution    | Responsive design testing   | `375x812`                    |
+| Operating system     | Browser compatibility       | `iOS`, `Android`             |
+| Country              | Regional content relevance  | `FI`, `US`                   |
+| Referrer origin      | Understand traffic sources  | `google.com`                 |
+| Interaction time     | Measure engagement quality  | `4200ms`                     |
+| Scroll depth         | Understand reading behavior | `75%`                        |
+| Anonymous visitor ID | Distinguish unique visits   | Random 16-character hex code |
 
 **What we do NOT collect:**
 
 - Your name, email address, or any account information
-- Your IP address (used transiently for visitor hashing and rate limiting — never
-  stored in our database)
+- Your IP address (used transiently for visitor hashing and rate limiting —
+  never stored in our database)
 - Precise geolocation (country is derived from request headers, not GPS)
 - Browser fingerprints
 - Cross-site tracking data
@@ -88,17 +88,21 @@ whether a conversion event occurred. Variant assignment is random and anonymous.
 #### 1.6 Bot Detection
 
 To protect the Service from automated abuse, we score each request using
-behavioral signals such as interaction timing, request frequency, and header
-analysis. This system:
+multiple detection methods including interaction timing, request frequency,
+header analysis, and comparison against publicly-available lists of known
+crawler user-agents and cloud provider IP ranges. This system:
 
 - Uses a one-way hash of your IP address that rotates every 24 hours
-- Does not store your IP address
+- Does not store your IP address — hashes are held in memory temporarily (up to
+  1 hour) and are lost on server restart
+- Compares your IP against known cloud provider address ranges (AWS, Google
+  Cloud) to identify datacenter traffic
 - Does not affect legitimate users — it only filters automated traffic
 
 ### 2. Visitor Identity
 
-By default, visitors are identified using a daily-rotating one-way hash of
-IP address + User-Agent + site ID + date. This means:
+By default, visitors are identified using a daily-rotating one-way hash of IP
+address + User-Agent + site ID + date. This means:
 
 - Your identity resets every day — no cross-day tracking
 - The hash cannot be reversed to recover your IP address
@@ -107,9 +111,9 @@ IP address + User-Agent + site ID + date. This means:
 **If persistent cookies are enabled** (`data-cookie` attribute), we set a single
 cookie:
 
-| Cookie | Purpose | Duration | Attributes |
-|--------|---------|----------|------------|
-| `_ev` | Anonymous visitor ID (random hex) | 30 days | HttpOnly, Secure, SameSite=None, Partitioned |
+| Cookie | Purpose                           | Duration | Attributes                                   |
+| ------ | --------------------------------- | -------- | -------------------------------------------- |
+| `_ev`  | Anonymous visitor ID (random hex) | 30 days  | HttpOnly, Secure, SameSite=None, Partitioned |
 
 This cookie contains a random 16-character identifier that cannot be linked to
 your identity. We do not use advertising cookies, tracking pixels, or
@@ -138,13 +142,14 @@ Analytics data itself is stored exclusively on our servers."]
 
 ### 5. Data Retention
 
-| Data type | Retention period |
-|-----------|-----------------|
-| Raw page views | [DEFAULT: 90 days] |
-| Raw behavioral events | [DEFAULT: 90 days] |
-| Aggregated daily summaries | [DEFAULT: 2 years] |
-| Bot detection IP hashes | 5 minutes (in memory only) |
-| Rate limiting data | 60 seconds (in memory only) |
+| Data type                        | Retention period                                         |
+| -------------------------------- | -------------------------------------------------------- |
+| Raw page views                   | [DEFAULT: 90 days]                                       |
+| Raw behavioral events            | [DEFAULT: 90 days]                                       |
+| Aggregated daily summaries       | [DEFAULT: 2 years]                                       |
+| Bot detection IP hashes          | Up to 30 min or 1 hour (in memory only, lost on restart) |
+| Bot fingerprint correlation data | Up to 20 minutes (in memory only)                        |
+| Rate limiting data               | 60 seconds (in memory only)                              |
 
 After the retention period, raw data is automatically purged. Aggregated
 summaries contain no visitor-level data.
@@ -154,13 +159,14 @@ summaries contain no visitor-level data.
 ### 6. Your Rights
 
 Since we collect only anonymous data with no account system, most requests
-require you to provide your anonymous visitor ID (found in the `_ev` cookie
-via your browser's developer tools, or not available if cookies are disabled).
+require you to provide your anonymous visitor ID (found in the `_ev` cookie via
+your browser's developer tools, or not available if cookies are disabled).
 
 **Under GDPR (EU/EEA residents):**
 
 - **Right to access** — Request a copy of data associated with your visitor ID
-- **Right to erasure** — Request deletion of data associated with your visitor ID
+- **Right to erasure** — Request deletion of data associated with your visitor
+  ID
 - **Right to object** — Object to processing of your data
 - **Right to restriction** — Request limitation of processing
 - **Right to data portability** — Receive your data in a machine-readable format
@@ -187,18 +193,18 @@ your rights because:
 
 ### 8. Children's Privacy
 
-We do not knowingly collect data from children under 13 (or under 16 in the
-EU). The Service is not directed at children. If you believe a child has
-provided us with personal data, contact us at [CONTACT EMAIL].
+We do not knowingly collect data from children under 13 (or under 16 in the EU).
+The Service is not directed at children. If you believe a child has provided us
+with personal data, contact us at [CONTACT EMAIL].
 
 ### 9. International Data Transfers
 
 Our servers are located in [COUNTRY]. If you access the Service from outside
-[COUNTRY], your anonymous analytics data will be transferred to and processed
-in [COUNTRY].
+[COUNTRY], your anonymous analytics data will be transferred to and processed in
+[COUNTRY].
 
-[FOR EU RESIDENTS, ADD IF APPLICABLE: "We rely on [Standard Contractual
-Clauses / adequacy decisions / other legal mechanism] for this transfer."]
+[FOR EU RESIDENTS, ADD IF APPLICABLE: "We rely on [Standard Contractual Clauses
+/ adequacy decisions / other legal mechanism] for this transfer."]
 
 ### 10. Changes to This Policy
 
@@ -214,8 +220,7 @@ For privacy-related questions or to exercise your rights:
 
 ---
 
-> **Template version**: 2.0
-> **Covers**: Echelon Analytics self-hosted analytics — pageview tracking,
-> behavioral events (clicks, scroll depth, outbound links, downloads, form
-> interactions), Core Web Vitals, bot scoring, UTM campaign tracking, A/B
-> experiment tracking.
+> **Template version**: 2.0 **Covers**: Echelon Analytics self-hosted analytics
+> — pageview tracking, behavioral events (clicks, scroll depth, outbound links,
+> downloads, form interactions), Core Web Vitals, bot scoring, UTM campaign
+> tracking, A/B experiment tracking.

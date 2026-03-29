@@ -16,7 +16,7 @@ export const handler = define.handlers({
     }>(
       `SELECT
          COUNT(*) AS total_views,
-         SUM(CASE WHEN bot_score < 50 THEN 1 ELSE 0 END) AS human_views,
+         SUM(CASE WHEN bot_score BETWEEN 0 AND 49 THEN 1 ELSE 0 END) AS human_views,
          SUM(CASE WHEN bot_score >= 50 THEN 1 ELSE 0 END) AS bot_views,
          COUNT(DISTINCT visitor_id) AS unique_visitors
        FROM visitor_views

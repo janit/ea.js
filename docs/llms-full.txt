@@ -494,7 +494,7 @@ The admin UI at /admin/ provides a full-featured analytics dashboard:
 - A/B experiments — create, manage, view conversion uplift
 - UTM campaigns — track and break down by source, medium, content
 - Performance metrics — CI/CD benchmark tracking with trends
-- Norway-inspired professional design with navy and burgundy palette
+- Professional design with navy and burgundy palette
 - Persistent site selector and date range picker in navigation
 - Configurable timezone display for all admin timestamps (ECHELON_DISPLAY_TIMEZONE)
 

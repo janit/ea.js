@@ -98,12 +98,15 @@ export async function ingestBatch(
       };
 
       const now = new Date();
+      // Mark as server-ingested with bot_score=-1 so these rows are
+      // distinguishable from browser-scored traffic. They bypass PoW
+      // and heuristic scoring — only the auth gate protects this path.
       const result = await tx.run(
         `INSERT INTO semantic_events
            (event_type, site_id, session_id, visitor_id, data,
             device_type, referrer, hour, month, day_of_week,
-            is_returning, bot_score)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            is_returning, bot_score, bot_score_detail)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         evt.type,
         ctx.site_id ?? "default",
         ctx.session_id,
@@ -115,7 +118,8 @@ export async function ingestBatch(
         now.getUTCMonth() + 1,
         now.getUTCDay(),
         0,
-        0,
+        -1,
+        '{"source":"api_ingest"}',
       );
 
       if (result.changes > 0) {

@@ -31,8 +31,9 @@ WebAssembly module** that browsers must solve before pageviews are accepted.
 - Invisible to users — solves in <150ms in any modern browser
 - Missing or invalid tokens add penalty points to the visitor's bot score
   (0–100)
-- Combined with heuristic scoring, Cloudflare integration, burst detection, and
-  UA blocklists
+- Combined with heuristic scoring, Cloudflare integration, burst detection, UA
+  blocklists, threat intelligence feeds (crawler UAs, AI bots, datacenter IPs),
+  and async fingerprint clustering that detects coordinated bot farms
 
 The result: **clean analytics data** without CAPTCHAs, JavaScript challenges, or
 third-party bot detection services.
@@ -127,17 +128,17 @@ specific features:
 ></script>
 ```
 
-| Attribute           | Effect                                                                   |
-| ------------------- | ------------------------------------------------------------------------ |
-| `data-site`         | Site identifier (required)                                               |
-| `data-cookie`       | Enable persistent visitor cookie (opt-in, requires consent)              |
-| `data-no-clicks`    | Disable click events on elements with `data-echelon-click`               |
-| `data-no-scroll`    | Disable scroll depth milestones (25/50/75/90/100%)                       |
-| `data-no-hover`     | Disable hover events (1s dwell) on elements with `data-echelon-hover`    |
-| `data-no-outbound`  | Disable outbound link click tracking                                     |
-| `data-no-downloads` | Disable file download click tracking (pdf, zip, exe, mp3, mp4, etc.)     |
-| `data-no-forms`     | Disable form tracking (field focus, edits, submissions)                  |
-| `data-no-vitals`    | Disable Core Web Vitals (LCP, CLS, INP) via PerformanceObserver         |
+| Attribute           | Effect                                                                |
+| ------------------- | --------------------------------------------------------------------- |
+| `data-site`         | Site identifier (required)                                            |
+| `data-cookie`       | Enable persistent visitor cookie (opt-in, requires consent)           |
+| `data-no-clicks`    | Disable click events on elements with `data-echelon-click`            |
+| `data-no-scroll`    | Disable scroll depth milestones (25/50/75/90/100%)                    |
+| `data-no-hover`     | Disable hover events (1s dwell) on elements with `data-echelon-hover` |
+| `data-no-outbound`  | Disable outbound link click tracking                                  |
+| `data-no-downloads` | Disable file download click tracking (pdf, zip, exe, mp3, mp4, etc.)  |
+| `data-no-forms`     | Disable form tracking (field focus, edits, submissions)               |
+| `data-no-vitals`    | Disable Core Web Vitals (LCP, CLS, INP) via PerformanceObserver       |
 
 ### Markup for Clicks and Hovers
 
@@ -256,7 +257,9 @@ metrics, and per-site settings.
 
 ## Bot Scoring
 
-Every request is scored 0–100 based on heuristics:
+Every request is scored 0–100 using multiple detection layers:
+
+### Per-Request Heuristics
 
 | Signal                             | Points |
 | ---------------------------------- | ------ |
@@ -264,6 +267,8 @@ Every request is scored 0–100 based on heuristics:
 | Cloudflare bot score 3–29          | +30    |
 | Cloudflare bot score 30–50         | +10    |
 | Cloudflare verified bot            | +15    |
+| Suspected bot IP (UA leak)         | +20    |
+| Confirmed bot IP (correlated)      | +50    |
 | PoW token invalid                  | +25    |
 | PoW token replayed                 | +40    |
 | PoW token missing                  | +15    |
@@ -276,16 +281,39 @@ Every request is scored 0–100 based on heuristics:
 | Unrealistic screen dimensions      | +10    |
 | No referrer + deep path            | +5     |
 
+### Threat Intelligence Feeds (async refresh every 6 hours)
+
+| Feed                                               | Points |
+| -------------------------------------------------- | ------ |
+| Crawler UA match (monperrus/crawler-user-agents)   | +30    |
+| AI bot UA match (ai-robots-txt/robots.json)        | +40    |
+| Datacenter IP (AWS + GCP CIDR ranges, IPv4 + IPv6) | +15    |
+
+### Async Bot Correlator (background sweep every 2 min)
+
+| Signal                                               | Points |
+| ---------------------------------------------------- | ------ |
+| Fingerprint cluster ≥ 6 distinct IPs                 | +30    |
+| Fingerprint cluster ≥ 8 IPs or confirmed-bot-tainted | +50    |
+
+The correlator groups beacon requests by device fingerprint (OS, browser,
+version, screen size, country, Accept-Language) per site. Bot farms running
+identical headless Chrome configs produce many distinct IPs with the same
+fingerprint — real users have varied configurations (especially
+Accept-Language). Confirmed cluster IPs are fed back into the confirmed bot IP
+map for immediate scoring of future requests.
+
 Visitors scoring ≥ 50 are excluded from daily rollups. Known bot User-Agents
-(Googlebot, GPTBot, ClaudeBot, curl, etc.) are dropped immediately before
-scoring.
+(Googlebot, GPTBot, ClaudeBot, HeadlessChrome, curl, etc.) are dropped
+immediately before scoring.
 
 Referrer traffic is classified as `ai` (ChatGPT, Claude, Perplexity, Gemini),
 `search` (Google, Bing, DuckDuckGo, etc.), `social` (Facebook, X, Reddit,
 LinkedIn), or `direct_or_unknown`.
 
 IP addresses are never stored — only ephemeral HMAC hashes with daily key
-rotation.
+rotation. Bot IP state is held in memory (suspected: 30-min TTL, confirmed:
+1-hour TTL) and lost on restart.
 
 ## Public Mode
 
@@ -378,36 +406,37 @@ Two independent auth modes (can be used simultaneously):
 
 ## Configuration
 
-| Environment Variable               | Default             | Purpose                                                      |
-| ---------------------------------- | ------------------- | ------------------------------------------------------------ |
-| `ECHELON_PORT`                     | `1947`              | Server port                                                  |
-| `ECHELON_DB_PATH`                  | `./echelon.db`      | SQLite database path                                         |
-| `ECHELON_SECRET`                   | _(empty = no auth)_ | Bearer token for authenticated endpoints                     |
-| `ECHELON_USERNAME`                 | _(empty)_           | Username for admin login                                     |
-| `ECHELON_PASSWORD_HASH`            | _(empty)_           | PBKDF2 password hash for admin login                         |
-| `ECHELON_RETENTION_DAYS`           | `90`                | Raw data retention period (days)                             |
-| `ECHELON_SUSPECT_COUNTRIES`        | `CN`                | Comma-separated country codes for bot scoring                |
-| `ECHELON_SUSPECT_POINTS`           | `30`                | Points added for suspect countries                           |
-| `ECHELON_BOT_DISCARD_THRESHOLD`    | `0`                 | Bot score at which to drop requests entirely (0 = store all) |
-| `ECHELON_BOT_UA_PATTERNS`          | _(long default)_    | Comma-separated bot UA substrings to drop silently           |
-| `ECHELON_ALLOWED_ORIGINS`          | _(empty = open)_    | Restrict which domains can send tracking data                |
-| `ECHELON_RATE_LIMIT_MAX`           | `100`               | Max requests per IP per window on tracking endpoints         |
-| `ECHELON_RATE_LIMIT_WINDOW_MS`     | `60000`             | Rate limit window in ms                                      |
-| `ECHELON_VIEW_FLUSH_MS`            | `15000`             | Beacon write buffer flush interval (ms)                      |
-| `ECHELON_EVENT_FLUSH_MS`           | `10000`             | Event write buffer flush interval (ms)                       |
-| `ECHELON_TRUST_PROXY`              | `false`             | Trust X-Forwarded-For / X-Real-IP headers                    |
-| `ECHELON_BEHIND_CLOUDFLARE`        | `false`             | Trust Cloudflare headers (bot score, IP, country)            |
-| `ECHELON_TRUST_GEO_HEADERS`        | `false`             | Trust CloudFront/generic geo headers                         |
-| `ECHELON_COOKIE_CONSENT`           | `false`             | Show consent banner before setting visitor cookie            |
-| `ECHELON_IGNORED_SITES`            | _(empty)_           | Site IDs to silently discard (+ always `smoke-test`)         |
-| `ECHELON_SITE_SUSPECT_COUNTRIES`   | _(empty)_           | Per-site suspect countries (`site:CC,CC;site:CC`)            |
-| `ECHELON_CHALLENGE_WINDOW_MINUTES` | `10`                | PoW challenge validity window (minutes)                      |
-| `ECHELON_LIVE_STATS_MINUTES`       | `10`                | Admin nav live stats window (minutes)                        |
-| `ECHELON_DISPLAY_TIMEZONE`         | `UTC`               | IANA timezone for admin UI timestamps (data stored in UTC)   |
-| `ECHELON_PUBLIC_MODE`              | `false`             | Read-only public dashboard (no auth, mutations blocked)      |
-| `ECHELON_ANONYMIZE_SITES`          | _(empty)_           | Comma-separated site IDs to anonymize in responses           |
-| `ECHELON_TELEMETRY`                | _(per-instance)_    | Override telemetry opt-in (`true`/`false`)                   |
-| `ECHELON_SHUTDOWN_TIMEOUT_MS`      | `60000`             | Graceful shutdown timeout (ms) for flushing buffers          |
+| Environment Variable               | Default              | Purpose                                                      |
+| ---------------------------------- | -------------------- | ------------------------------------------------------------ |
+| `ECHELON_PORT`                     | `1947`               | Server port                                                  |
+| `ECHELON_DB_PATH`                  | `./echelon.db`       | SQLite database path                                         |
+| `ECHELON_SECRET`                   | _(empty = no auth)_  | Bearer token for authenticated endpoints                     |
+| `ECHELON_USERNAME`                 | _(empty)_            | Username for admin login                                     |
+| `ECHELON_PASSWORD_HASH`            | _(empty)_            | PBKDF2 password hash for admin login                         |
+| `ECHELON_RETENTION_DAYS`           | `90`                 | Raw data retention period (days)                             |
+| `ECHELON_BOT_RETENTION_DAYS`       | _(= RETENTION_DAYS)_ | Bot-scored data retention (days, defaults to RETENTION_DAYS) |
+| `ECHELON_SUSPECT_COUNTRIES`        | `CN`                 | Comma-separated country codes for bot scoring                |
+| `ECHELON_SUSPECT_POINTS`           | `30`                 | Points added for suspect countries                           |
+| `ECHELON_BOT_DISCARD_THRESHOLD`    | `0`                  | Bot score at which to drop requests entirely (0 = store all) |
+| `ECHELON_BOT_UA_PATTERNS`          | _(long default)_     | Comma-separated bot UA substrings to drop silently           |
+| `ECHELON_ALLOWED_ORIGINS`          | _(empty = open)_     | Restrict which domains can send tracking data                |
+| `ECHELON_RATE_LIMIT_MAX`           | `100`                | Max requests per IP per window on tracking endpoints         |
+| `ECHELON_RATE_LIMIT_WINDOW_MS`     | `60000`              | Rate limit window in ms                                      |
+| `ECHELON_VIEW_FLUSH_MS`            | `15000`              | Beacon write buffer flush interval (ms)                      |
+| `ECHELON_EVENT_FLUSH_MS`           | `10000`              | Event write buffer flush interval (ms)                       |
+| `ECHELON_TRUST_PROXY`              | `false`              | Trust X-Forwarded-For / X-Real-IP headers                    |
+| `ECHELON_BEHIND_CLOUDFLARE`        | `false`              | Trust Cloudflare headers (bot score, IP, country)            |
+| `ECHELON_TRUST_GEO_HEADERS`        | `false`              | Trust CloudFront/generic geo headers                         |
+| `ECHELON_COOKIE_CONSENT`           | `false`              | Show consent banner before setting visitor cookie            |
+| `ECHELON_IGNORED_SITES`            | _(empty)_            | Site IDs to silently discard (+ always `smoke-test`)         |
+| `ECHELON_SITE_SUSPECT_COUNTRIES`   | _(empty)_            | Per-site suspect countries (`site:CC,CC;site:CC`)            |
+| `ECHELON_CHALLENGE_WINDOW_MINUTES` | `10`                 | PoW challenge validity window (minutes)                      |
+| `ECHELON_LIVE_STATS_MINUTES`       | `10`                 | Admin nav live stats window (minutes)                        |
+| `ECHELON_DISPLAY_TIMEZONE`         | `UTC`                | IANA timezone for admin UI timestamps (data stored in UTC)   |
+| `ECHELON_PUBLIC_MODE`              | `false`              | Read-only public dashboard (no auth, mutations blocked)      |
+| `ECHELON_ANONYMIZE_SITES`          | _(empty)_            | Comma-separated site IDs to anonymize in responses           |
+| `ECHELON_TELEMETRY`                | _(per-instance)_     | Override telemetry opt-in (`true`/`false`)                   |
+| `ECHELON_SHUTDOWN_TIMEOUT_MS`      | `60000`              | Graceful shutdown timeout (ms) for flushing buffers          |
 
 ## Testing
 
@@ -454,8 +483,9 @@ since they require Chromium.
 - **`site_settings`** — per-site configuration (consent CSS)
 - **`maintenance_log`** — daily rollup run records
 
-Raw data is retained for 90 days (configurable). Daily rollups are kept for 2
-years.
+Raw data is retained for 90 days (configurable via `ECHELON_RETENTION_DAYS`).
+Bot-scored data can have independent retention via `ECHELON_BOT_RETENTION_DAYS`
+(defaults to the same as clean data). Daily rollups are kept for 2 years.
 
 ## MCP Server
 
@@ -476,17 +506,17 @@ ECHELON_URL=http://localhost:1947 ECHELON_SECRET=your-token deno task mcp
 
 ### Tools
 
-| Tool                        | API Endpoint                | Description                           |
-| --------------------------- | --------------------------- | ------------------------------------- |
-| `analytics_overview`        | `/api/stats/overview`       | Visits, uniques, top paths, devices   |
-| `analytics_realtime`        | `/api/stats/realtime`       | Active visitors in last 5 minutes     |
-| `analytics_campaigns`       | `/api/stats/campaigns`      | UTM campaign stats                    |
-| `analytics_campaign_detail` | `/api/stats/campaigns?id=x` | Campaign breakdown by source/medium   |
-| `analytics_experiments`     | `/api/stats/experiments`    | A/B experiment results                |
-| `analytics_campaign_events` | `/api/stats/campaign-events` | Campaign-to-event correlation         |
-| `analytics_dashboard`       | `/api/stats/dashboard`      | Live dashboard with trends            |
-| `list_campaigns`            | `/api/campaigns`            | All UTM campaigns with metadata       |
-| `list_experiments`          | `/api/experiments`          | All A/B experiments with variants     |
+| Tool                        | API Endpoint                 | Description                         |
+| --------------------------- | ---------------------------- | ----------------------------------- |
+| `analytics_overview`        | `/api/stats/overview`        | Visits, uniques, top paths, devices |
+| `analytics_realtime`        | `/api/stats/realtime`        | Active visitors in last 5 minutes   |
+| `analytics_campaigns`       | `/api/stats/campaigns`       | UTM campaign stats                  |
+| `analytics_campaign_detail` | `/api/stats/campaigns?id=x`  | Campaign breakdown by source/medium |
+| `analytics_experiments`     | `/api/stats/experiments`     | A/B experiment results              |
+| `analytics_campaign_events` | `/api/stats/campaign-events` | Campaign-to-event correlation       |
+| `analytics_dashboard`       | `/api/stats/dashboard`       | Live dashboard with trends          |
+| `list_campaigns`            | `/api/campaigns`             | All UTM campaigns with metadata     |
+| `list_experiments`          | `/api/experiments`           | All A/B experiments with variants   |
 
 ### Claude Code (auto-discovery)
 
@@ -532,10 +562,10 @@ Add to your config
 
 ### Environment Variables
 
-| Variable          | Required | Purpose                                              |
-| ----------------- | -------- | ---------------------------------------------------- |
-| `ECHELON_URL`     | Yes      | Base URL of the Echelon instance to query             |
-| `ECHELON_SECRET`  | No       | Bearer token (not needed for `PUBLIC_MODE` instances) |
+| Variable         | Required | Purpose                                               |
+| ---------------- | -------- | ----------------------------------------------------- |
+| `ECHELON_URL`    | Yes      | Base URL of the Echelon instance to query             |
+| `ECHELON_SECRET` | No       | Bearer token (not needed for `PUBLIC_MODE` instances) |
 
 ## Docker
 

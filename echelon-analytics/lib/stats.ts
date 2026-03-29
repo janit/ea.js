@@ -162,7 +162,7 @@ export async function getOverview(
     `SELECT COUNT(*) AS visits,
             COUNT(DISTINCT visitor_id) AS unique_visitors
      FROM visitor_views
-     WHERE site_id = ? AND created_at >= ? AND bot_score < 50`,
+     WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49`,
     siteId,
     todayCutoff,
   );
@@ -175,7 +175,7 @@ export async function getOverview(
     visitors: number;
   }>(
     `SELECT path, COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
-     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY path ORDER BY views DESC LIMIT 20`,
     siteId,
     pathCutoff + "T00:00:00Z",
@@ -204,7 +204,7 @@ export async function getOverview(
   // Limit referrer scan to max 7 days of raw data for performance
   const referrers = await db.query<{ referrer_type: string; views: number }>(
     `SELECT referrer_type, COUNT(*) AS views
-     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY referrer_type ORDER BY views DESC`,
     siteId,
     pathCutoff + "T00:00:00Z",
@@ -216,7 +216,7 @@ export async function getOverview(
     visitors: number;
   }>(
     `SELECT COALESCE(os_name, 'Unknown') AS os_name, COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
-     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY os_name ORDER BY views DESC LIMIT 20`,
     siteId,
     pathCutoff + "T00:00:00Z",
@@ -229,7 +229,7 @@ export async function getOverview(
   }>(
     `SELECT COALESCE(browser_name || ' ' || browser_version, browser_name, 'Unknown') AS browser,
             COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
-     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY browser ORDER BY views DESC LIMIT 20`,
     siteId,
     pathCutoff + "T00:00:00Z",
@@ -242,7 +242,7 @@ export async function getOverview(
   }>(
     `SELECT (COALESCE(screen_width, 0) || 'x' || COALESCE(screen_height, 0)) AS resolution,
             COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
-     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     FROM visitor_views WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY resolution ORDER BY views DESC LIMIT 20`,
     siteId,
     pathCutoff + "T00:00:00Z",
@@ -289,7 +289,7 @@ export async function getRealtime(db: DbAdapter, siteId: string) {
     `SELECT COUNT(DISTINCT visitor_id) AS active_visitors,
             COUNT(*) AS pageviews
      FROM visitor_views
-     WHERE site_id = ? AND created_at >= ? AND bot_score < 50`,
+     WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49`,
     siteId,
     fiveMinAgo,
   );
@@ -297,7 +297,7 @@ export async function getRealtime(db: DbAdapter, siteId: string) {
   const activePaths = await db.query<{ path: string; views: number }>(
     `SELECT path, COUNT(*) AS views
      FROM visitor_views
-     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY path ORDER BY views DESC LIMIT 10`,
     siteId,
     fiveMinAgo,
@@ -338,7 +338,7 @@ export async function getCampaignStats(
        ON vv.utm_campaign = uc.utm_campaign
        AND vv.site_id = uc.site_id
        AND vv.created_at >= ?
-       AND vv.bot_score < 50`;
+       AND vv.bot_score BETWEEN 0 AND 49`;
 
   const campaigns = campaignId
     ? await db.query<CampaignStatRow>(
@@ -371,7 +371,7 @@ export async function getCampaignDetail(
     `SELECT COALESCE(utm_source, 'direct') AS utm_source,
             COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
      FROM visitor_views
-     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY utm_source ORDER BY views DESC LIMIT 20`,
     utmCampaign,
     siteId,
@@ -386,7 +386,7 @@ export async function getCampaignDetail(
     `SELECT COALESCE(utm_medium, 'none') AS utm_medium,
             COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
      FROM visitor_views
-     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY utm_medium ORDER BY views DESC LIMIT 20`,
     utmCampaign,
     siteId,
@@ -401,7 +401,7 @@ export async function getCampaignDetail(
     `SELECT DATE(created_at) AS date,
             COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
      FROM visitor_views
-     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY date ORDER BY date`,
     utmCampaign,
     siteId,
@@ -415,7 +415,7 @@ export async function getCampaignDetail(
   }>(
     `SELECT path, COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
      FROM visitor_views
-     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY path ORDER BY views DESC LIMIT 20`,
     utmCampaign,
     siteId,
@@ -428,7 +428,7 @@ export async function getCampaignDetail(
   }>(
     `SELECT COALESCE(utm_content, 'none') AS utm_content, COUNT(*) AS views
      FROM visitor_views
-     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY utm_content ORDER BY views DESC LIMIT 20`,
     utmCampaign,
     siteId,
@@ -441,7 +441,7 @@ export async function getCampaignDetail(
   }>(
     `SELECT COALESCE(utm_term, 'none') AS utm_term, COUNT(*) AS views
      FROM visitor_views
-     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE utm_campaign = ? AND site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY utm_term ORDER BY views DESC LIMIT 20`,
     utmCampaign,
     siteId,
@@ -465,9 +465,9 @@ export async function getDashboardLive(db: DbAdapter, siteId: string) {
     pageviews: number;
   }>(
     `SELECT
-       COUNT(DISTINCT CASE WHEN bot_score < 50 THEN visitor_id END) AS active_visitors,
+       COUNT(DISTINCT CASE WHEN bot_score BETWEEN 0 AND 49 THEN visitor_id END) AS active_visitors,
        COUNT(DISTINCT CASE WHEN bot_score >= 50 THEN visitor_id END) AS estimated_bots,
-       COUNT(CASE WHEN bot_score < 50 THEN 1 END) AS pageviews
+       COUNT(CASE WHEN bot_score BETWEEN 0 AND 49 THEN 1 END) AS pageviews
      FROM visitor_views
      WHERE site_id = ? AND created_at >= ?`,
     siteId,
@@ -478,7 +478,7 @@ export async function getDashboardLive(db: DbAdapter, siteId: string) {
   const hourlyVisitors = await db.query<{ minute: string; count: number }>(
     `SELECT strftime('%H:%M', created_at) AS minute, COUNT(*) AS count
      FROM visitor_views
-     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY minute ORDER BY minute`,
     siteId,
     oneHourAgo,
@@ -487,7 +487,7 @@ export async function getDashboardLive(db: DbAdapter, siteId: string) {
   const hourlyEvents = await db.query<{ minute: string; count: number }>(
     `SELECT strftime('%H:%M', created_at) AS minute, COUNT(*) AS count
      FROM semantic_events
-     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY minute ORDER BY minute`,
     siteId,
     oneHourAgo,
@@ -497,7 +497,7 @@ export async function getDashboardLive(db: DbAdapter, siteId: string) {
   const dailyVisitors = await db.query<{ hour: string; count: number }>(
     `SELECT strftime('%H:00', created_at) AS hour, COUNT(*) AS count
      FROM visitor_views
-     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY hour ORDER BY hour`,
     siteId,
     twentyFourHoursAgo,
@@ -506,7 +506,7 @@ export async function getDashboardLive(db: DbAdapter, siteId: string) {
   const dailyEvents = await db.query<{ hour: string; count: number }>(
     `SELECT strftime('%H:00', created_at) AS hour, COUNT(*) AS count
      FROM semantic_events
-     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY hour ORDER BY hour`,
     siteId,
     twentyFourHoursAgo,
@@ -520,7 +520,7 @@ export async function getDashboardLive(db: DbAdapter, siteId: string) {
             MAX(country_code) AS country_code, MAX(created_at) AS created_at,
             COUNT(*) AS view_count
      FROM visitor_views
-     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      GROUP BY visitor_id
      ORDER BY MAX(created_at) DESC LIMIT 20`,
     siteId,
@@ -531,7 +531,7 @@ export async function getDashboardLive(db: DbAdapter, siteId: string) {
   const recentEvents = await db.query<Record<string, unknown>>(
     `SELECT event_type, site_id, visitor_id, created_at
      FROM semantic_events
-     WHERE site_id = ? AND created_at >= ? AND bot_score < 50
+     WHERE site_id = ? AND created_at >= ? AND bot_score BETWEEN 0 AND 49
      ORDER BY created_at DESC LIMIT 20`,
     siteId,
     oneHourAgo,
@@ -597,7 +597,7 @@ export async function getCampaignEvents(
        SELECT utm_campaign,
               COUNT(DISTINCT visitor_id) AS visitors
        FROM visitor_views
-       WHERE created_at >= ? AND site_id = ? AND bot_score < 50
+       WHERE created_at >= ? AND site_id = ? AND bot_score BETWEEN 0 AND 49
        GROUP BY utm_campaign
      ) vv_agg
      LEFT JOIN (
@@ -605,7 +605,7 @@ export async function getCampaignEvents(
               COUNT(DISTINCT visitor_id) AS event_visitors,
               COUNT(*) AS events
        FROM semantic_events
-       WHERE created_at >= ? AND site_id = ? AND bot_score < 50
+       WHERE created_at >= ? AND site_id = ? AND bot_score BETWEEN 0 AND 49
          ${eventFilter}
        GROUP BY utm_campaign
      ) se_agg ON se_agg.utm_campaign IS vv_agg.utm_campaign
@@ -628,7 +628,7 @@ export async function getCampaignEvents(
             COUNT(*) AS count,
             COUNT(DISTINCT visitor_id) AS unique_visitors
      FROM semantic_events
-     WHERE created_at >= ? AND site_id = ? AND bot_score < 50
+     WHERE created_at >= ? AND site_id = ? AND bot_score BETWEEN 0 AND 49
      GROUP BY utm_campaign, event_type
      ORDER BY utm_campaign, count DESC
      LIMIT 500`,

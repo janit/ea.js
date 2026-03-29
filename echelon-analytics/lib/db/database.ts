@@ -120,7 +120,7 @@ async function migrate(adapter: DbAdapter): Promise<void> {
   await adapter.exec(
     `CREATE INDEX IF NOT EXISTS idx_vv_site_created_clean
      ON visitor_views(site_id, created_at)
-     WHERE bot_score < 50`,
+     WHERE bot_score BETWEEN 0 AND 49`,
   );
 
   // Add bot_score_detail column for detailed score breakdown

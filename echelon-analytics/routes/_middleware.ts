@@ -1,5 +1,7 @@
 import { define } from "../utils.ts";
 import { ALLOWED_ORIGINS, TELEMETRY_ENDPOINT } from "../lib/config.ts";
+import { hashIp, isKnownBot, recordSuspectedBotIp } from "../lib/bot-score.ts";
+import { getClientIp } from "../lib/ip.ts";
 
 /**
  * Check whether a request origin is allowed.
@@ -51,6 +53,18 @@ const CSP = [
 /** CORS preflight + security headers. */
 export const handler = define.handlers([
   async (ctx) => {
+    // Record IPs that leak known-bot UAs (e.g. HeadlessChrome on /sw.js).
+    // This flags the IP so beacon requests from the same source get penalised,
+    // even if the bot spoofs its UA on tracking requests.
+    const ua = ctx.req.headers.get("user-agent") ?? "";
+    if (ua && isKnownBot(ua)) {
+      const ip = getClientIp(ctx.req);
+      if (ip !== "unknown") {
+        const ipHash = await hashIp(ip);
+        recordSuspectedBotIp(ipHash);
+      }
+    }
+
     if (ctx.req.method === "OPTIONS") {
       return new Response(null, {
         status: 204,

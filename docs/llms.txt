@@ -36,7 +36,7 @@ Full-featured admin UI at `/admin/` with:
 - A/B experiments — create, manage, view conversion uplift
 - UTM campaigns — track and break down by source, medium, content
 - Performance metrics — CI/CD benchmark tracking with trends
-- Norway-inspired professional design with navy and burgundy palette
+- Professional design with navy and burgundy palette
 - Configurable timezone display (`ECHELON_DISPLAY_TIMEZONE`)
 - Persistent site selector and date range picker in navigation
 

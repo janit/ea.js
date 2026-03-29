@@ -72,6 +72,62 @@ export async function hashVisitor(
     .join("");
 }
 
+// ── Two-tier bot IP tracking ────────────────────────────────────────────────
+// Suspected: single request with bot UA (middleware detection). Low penalty
+// (+20) because a single spoofed request from a shared NAT/VPN IP should not
+// independently exclude legitimate users behind the same IP.
+// Confirmed: statistical evidence from the correlator (cluster of identical
+// fingerprints across many IPs). High penalty (+50) — definitive signal.
+
+const SUSPECTED_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const CONFIRMED_TTL_MS = 60 * 60 * 1000; // 1 hour
+const MAX_BOT_IP_MAP_SIZE = 50_000;
+
+const suspectedBotIps = new Map<string, number>(); // ipHash → timestamp
+const confirmedBotIps = new Map<string, number>(); // ipHash → timestamp
+
+function pruneMap(map: Map<string, number>, ttl: number): void {
+  const now = Date.now();
+  for (const [k, ts] of map) {
+    if (now - ts > ttl) map.delete(k);
+  }
+}
+
+/** Record an IP as suspected bot (e.g., bot UA leak on a non-tracking request). */
+export function recordSuspectedBotIp(ipHash: string): void {
+  if (suspectedBotIps.size > MAX_BOT_IP_MAP_SIZE) {
+    pruneMap(suspectedBotIps, SUSPECTED_TTL_MS);
+  }
+  suspectedBotIps.set(ipHash, Date.now());
+}
+
+/** Record an IP as confirmed bot (correlator cluster evidence). */
+export function recordConfirmedBotIp(ipHash: string): void {
+  if (confirmedBotIps.size > MAX_BOT_IP_MAP_SIZE) {
+    pruneMap(confirmedBotIps, CONFIRMED_TTL_MS);
+  }
+  confirmedBotIps.set(ipHash, Date.now());
+}
+
+/** Get bot IP penalty: 50 for confirmed, 20 for suspected, 0 for unknown. */
+export function getBotIpPenalty(ipHash: string): number {
+  const now = Date.now();
+
+  const confirmedTs = confirmedBotIps.get(ipHash);
+  if (confirmedTs !== undefined) {
+    if (now - confirmedTs <= CONFIRMED_TTL_MS) return 50;
+    confirmedBotIps.delete(ipHash);
+  }
+
+  const suspectedTs = suspectedBotIps.get(ipHash);
+  if (suspectedTs !== undefined) {
+    if (now - suspectedTs <= SUSPECTED_TTL_MS) return 20;
+    suspectedBotIps.delete(ipHash);
+  }
+
+  return 0;
+}
+
 // ── Burst detection ─────────────────────────────────────────────────────────
 
 interface BurstEntry {
@@ -252,6 +308,11 @@ export function computeBotScoreWithDetail(
       detail.referrer = 5;
     }
   }
+
+  // Threat feed matches (async-refreshed, checked synchronously)
+  if (signals.crawlerFeedMatch) detail.crawler_feed = 30;
+  if (signals.aiCrawlerFeedMatch) detail.ai_crawler_feed = 40;
+  if (signals.datacenterIp) detail.datacenter_ip = 15;
 
   const score = Math.min(
     Object.values(detail).reduce((sum, v) => sum + v, 0),

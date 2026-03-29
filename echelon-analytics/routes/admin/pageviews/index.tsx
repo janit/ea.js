@@ -39,7 +39,7 @@ export const handler = define.handlers({
     if (bot === "suspect") {
       conditions.push("bot_score >= 50");
     } else if (bot === "clean") {
-      conditions.push("bot_score < 50");
+      conditions.push("bot_score BETWEEN 0 AND 49");
     }
     if (search) {
       const escaped = search.replace(/[%_]/g, "\\$&");

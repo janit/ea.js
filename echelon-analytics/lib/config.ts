@@ -10,6 +10,12 @@ export const RETENTION_DAYS = parseInt(
   Deno.env.get("ECHELON_RETENTION_DAYS") ?? "90",
 ) || 90;
 
+// Bot data retention — how long to keep views/events with bot_score >= 50.
+// Defaults to RETENTION_DAYS (same as clean data). Set lower to reclaim disk sooner.
+export const BOT_RETENTION_DAYS = parseInt(
+  Deno.env.get("ECHELON_BOT_RETENTION_DAYS") ?? "",
+) || RETENTION_DAYS;
+
 export const SUSPECT_COUNTRIES = new Set(
   (Deno.env.get("ECHELON_SUSPECT_COUNTRIES") ?? "CN")
     .split(",")
@@ -21,10 +27,11 @@ export const SUSPECT_POINTS =
   parseInt(Deno.env.get("ECHELON_SUSPECT_POINTS") ?? "", 10) || 30;
 
 // Bot score threshold — views/events with score >= this are discarded entirely (not stored).
-// Set to 0 to disable (store everything, filter at query time).
-// Default 0 = keep all, filter in rollups. Set to e.g. 50 to drop high-score traffic.
-export const BOT_DISCARD_THRESHOLD =
-  parseInt(Deno.env.get("ECHELON_BOT_DISCARD_THRESHOLD") ?? "", 10) || 0;
+// Default 50 = drop definitive bots. Set to 0 to store everything (filter in rollups only).
+export const BOT_DISCARD_THRESHOLD = parseInt(
+  Deno.env.get("ECHELON_BOT_DISCARD_THRESHOLD") ?? "50",
+  10,
+);
 
 // Challenge PoW — how many past minutes of challenges to accept as valid.
 // With max-age=300 (5 min) on /ea.js, 10 min covers cache TTL + clock skew.
@@ -74,7 +81,8 @@ export const BOT_UA_PATTERNS: string[] = (() => {
     "AhrefsBot,SemrushBot,MJ12bot,DotBot,PetalBot,BLEXBot," +
     "GPTBot,ChatGPT-User,OAI-SearchBot,ClaudeBot,Claude-Web," +
     "Bytespider,CCBot,DataForSeoBot,Amazonbot,anthropic-ai," +
-    "PerplexityBot,YouBot,Scrapy,curl,wget,python-requests,Go-http-client,HeadlessChrome";
+    "PerplexityBot,YouBot,Scrapy,curl,wget,python-requests,Go-http-client,HeadlessChrome," +
+    "Amzn-SearchBot";
   const raw = Deno.env.get("ECHELON_BOT_UA_PATTERNS") ?? defaults;
   return raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 })();

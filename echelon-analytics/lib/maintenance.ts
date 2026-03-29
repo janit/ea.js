@@ -4,7 +4,7 @@
 // Runs at 03:00 UTC via hourly check interval.
 
 import type { DbAdapter } from "./db/adapter.ts";
-import { RETENTION_DAYS } from "./config.ts";
+import { BOT_RETENTION_DAYS, RETENTION_DAYS } from "./config.ts";
 
 const DAILY_ROLLUP_RETENTION_DAYS = 730; // 2 years for rollup tables
 
@@ -23,7 +23,7 @@ function daysAgoUTC(days: number): string {
 
 /**
  * Aggregate yesterday's visitor_views into visitor_views_daily.
- * Filters: bot_score < 50, not in excluded_visitors.
+ * Filters: bot_score BETWEEN 0 AND 49, not in excluded_visitors.
  * Idempotent via INSERT OR REPLACE on the composite key.
  */
 export async function rollupDay(
@@ -52,9 +52,9 @@ export async function rollupDay(
       COUNT(DISTINCT visitor_id),
       COALESCE(CAST(AVG(CASE WHEN interaction_ms > 0 THEN interaction_ms END) AS INTEGER), 0)
     FROM visitor_views
-    WHERE created_at >= ? || 'T00:00:00.000Z'
-      AND created_at < date(?, '+1 day') || 'T00:00:00.000Z'
-      AND bot_score < 50
+    WHERE (created_at >= (? || 'T00:00:00.000Z'))
+      AND (created_at < (date(?, '+1 day') || 'T00:00:00.000Z'))
+      AND (bot_score BETWEEN 0 AND 49)
       AND NOT EXISTS (
         SELECT 1 FROM excluded_visitors ev
         WHERE ev.visitor_id = visitor_views.visitor_id
@@ -84,23 +84,42 @@ export async function rollupDay(
 export async function purgeExpiredData(
   db: DbAdapter,
   retentionDays: number = RETENTION_DAYS,
+  botRetentionDays: number = BOT_RETENTION_DAYS,
 ): Promise<{
   views_deleted: number;
   events_deleted: number;
+  bot_views_deleted: number;
+  bot_events_deleted: number;
   daily_deleted: number;
   perf_deleted: number;
 }> {
   const rawCutoff = daysAgoUTC(retentionDays);
   const dailyCutoff = daysAgoUTC(DAILY_ROLLUP_RETENTION_DAYS);
 
+  // Clean data (bot_score BETWEEN 0 AND 49)
+  // Note: || is string concatenation in SQLite, not logical OR.
+  // Parentheses are explicit for clarity and portability.
   const views = await db.run(
-    `DELETE FROM visitor_views WHERE created_at < ? || 'T00:00:00.000Z'`,
+    `DELETE FROM visitor_views WHERE (created_at < (? || 'T00:00:00.000Z')) AND (bot_score BETWEEN 0 AND 49)`,
     rawCutoff,
   );
 
   const events = await db.run(
-    `DELETE FROM semantic_events WHERE created_at < ? || 'T00:00:00.000Z'`,
+    `DELETE FROM semantic_events WHERE (created_at < (? || 'T00:00:00.000Z')) AND (bot_score BETWEEN 0 AND 49)`,
     rawCutoff,
+  );
+
+  // Bot data (bot_score >= 50) — separate retention period
+  const botCutoff = daysAgoUTC(botRetentionDays);
+
+  const botViews = await db.run(
+    `DELETE FROM visitor_views WHERE (created_at < (? || 'T00:00:00.000Z')) AND (bot_score >= 50)`,
+    botCutoff,
+  );
+
+  const botEvents = await db.run(
+    `DELETE FROM semantic_events WHERE (created_at < (? || 'T00:00:00.000Z')) AND (bot_score >= 50)`,
+    botCutoff,
   );
 
   const daily = await db.run(
@@ -109,13 +128,15 @@ export async function purgeExpiredData(
   );
 
   const perf = await db.run(
-    `DELETE FROM perf_metrics WHERE recorded_at < ? || 'T00:00:00.000Z'`,
+    `DELETE FROM perf_metrics WHERE (recorded_at < (? || 'T00:00:00.000Z'))`,
     rawCutoff,
   );
 
   return {
     views_deleted: views.changes,
     events_deleted: events.changes,
+    bot_views_deleted: botViews.changes,
+    bot_events_deleted: botEvents.changes,
     daily_deleted: daily.changes,
     perf_deleted: perf.changes,
   };
@@ -163,8 +184,8 @@ export async function runDailyMaintenance(db: DbAdapter): Promise<void> {
     await db.run(
       `UPDATE maintenance_log SET status = 'complete', rollup_rows = ?, purge_views = ?, purge_events = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE date = ?`,
       rollupRows,
-      purged.views_deleted,
-      purged.events_deleted,
+      purged.views_deleted + purged.bot_views_deleted,
+      purged.events_deleted + purged.bot_events_deleted,
       date,
     );
 

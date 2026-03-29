@@ -92,6 +92,12 @@ export interface BotScoreSignals {
   cfBotScore?: number;
   /** Cloudflare verified bot flag. Auto-detected from cf-verified-bot header. */
   cfVerifiedBot?: boolean;
+  /** UA matches a known crawler pattern from the monperrus community feed. */
+  crawlerFeedMatch?: boolean;
+  /** UA matches a known AI bot name from the ai-robots-txt feed. */
+  aiCrawlerFeedMatch?: boolean;
+  /** Client IP falls within a known cloud provider CIDR (AWS/GCP). */
+  datacenterIp?: boolean;
 }
 
 export interface PerfMetric {

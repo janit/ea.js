@@ -11,6 +11,7 @@ import {
   classifyReferrer,
   computeBotScoreWithDetail,
   extractCloudflareSignals,
+  getBotIpPenalty,
   getVisitorCountry,
   hashIp,
   hashVisitor,
@@ -28,6 +29,12 @@ import {
 } from "./config.ts";
 import { anonymizeView, shouldAnonymize } from "./anonymize.ts";
 import { tokenPenalty, verifyToken } from "./challenge.ts";
+import { recordPrint } from "./bot-correlator.ts";
+import {
+  isDatacenterIp,
+  matchesAiCrawlerFeed,
+  matchesCrawlerFeed,
+} from "./threat-feeds.ts";
 import { BufferedWriter } from "./buffered-writer.ts";
 import { isUtmCampaignActive, refreshUtmCampaigns } from "./utm.ts";
 import { refreshConsentCss } from "./consent-css.ts";
@@ -338,6 +345,9 @@ export async function handleBeacon(
       path,
       visitorCountry,
       siteId,
+      crawlerFeedMatch: matchesCrawlerFeed(ua),
+      aiCrawlerFeedMatch: matchesAiCrawlerFeed(ua),
+      datacenterIp: isDatacenterIp(ip),
       ...cfSignals,
     });
 
@@ -349,7 +359,18 @@ export async function handleBeacon(
       scoreResult.detail.pow = powPenalty;
       scoreResult.detail.pow_result = tokenResult;
     }
-    const botScore = Math.min(scoreResult.score + powPenalty, 100);
+
+    // Two-tier bot IP detection: suspected (+20) from UA leaks,
+    // confirmed (+50) from correlator clusters.
+    const botIpPenalty = getBotIpPenalty(ipHash);
+    if (botIpPenalty > 0) {
+      scoreResult.detail.bot_ip = botIpPenalty;
+    }
+
+    const botScore = Math.min(
+      scoreResult.score + powPenalty + botIpPenalty,
+      100,
+    );
 
     debug("beacon", "pageview", {
       path,
@@ -366,6 +387,24 @@ export async function handleBeacon(
     const osName = parseOS(rawUa);
     const browser = parseBrowser(rawUa);
     const deviceType = validScreen ? classifyDevice(screenWidth) : undefined;
+
+    // Feed the bot correlator — ephemeral fingerprint for async clustering
+    recordPrint({
+      ipHash,
+      visitorId,
+      siteId,
+      fingerprint: {
+        osName: osName ?? "unknown",
+        browserName: browser?.name ?? "unknown",
+        browserVersion: browser?.version ?? "unknown",
+        screenWidth: validScreen ? screenWidth! : 0,
+        screenHeight: validScreen ? screenHeight! : 0,
+        countryCode: visitorCountry ?? "unknown",
+        acceptLanguage: req.headers.get("accept-language") ?? "unknown",
+      },
+      headlessTainted: botIpPenalty >= 50,
+      timestamp: Date.now(),
+    });
 
     // Discard if bot score exceeds threshold (when configured)
     const discard = BOT_DISCARD_THRESHOLD > 0 &&

@@ -10,6 +10,7 @@ import { getClientIp } from "./ip.ts";
 import {
   computeBotScoreWithDetail,
   extractCloudflareSignals,
+  getBotIpPenalty,
   getBurstCount,
   getVisitorCountry,
   hashIp,
@@ -26,6 +27,11 @@ import {
 } from "./config.ts";
 import { anonymizeEvent, shouldAnonymize } from "./anonymize.ts";
 import { tokenPenalty, verifyToken } from "./challenge.ts";
+import {
+  isDatacenterIp,
+  matchesAiCrawlerFeed,
+  matchesCrawlerFeed,
+} from "./threat-feeds.ts";
 import { BufferedWriter } from "./buffered-writer.ts";
 import { isUtmCampaignActive } from "./utm.ts";
 import { debug } from "./debug.ts";
@@ -232,6 +238,7 @@ export async function handleEvents(
   const burstCount = getBurstCount(ipHash); // Read-only — beacon increments
   const visitorCountry = getVisitorCountry(req);
 
+  const ua = req.headers.get("user-agent") ?? "";
   const cfSignals = extractCloudflareSignals(req);
   const scoreResult = computeBotScoreWithDetail({
     burstCount,
@@ -240,6 +247,9 @@ export async function handleEvents(
     hasSecFetchSite: req.headers.has("sec-fetch-site"),
     visitorCountry,
     siteId,
+    crawlerFeedMatch: matchesCrawlerFeed(ua),
+    aiCrawlerFeedMatch: matchesAiCrawlerFeed(ua),
+    datacenterIp: isDatacenterIp(ip),
     ...cfSignals,
   });
 
@@ -253,7 +263,17 @@ export async function handleEvents(
     scoreResult.detail.pow = powPenalty;
     scoreResult.detail.pow_result = tokenResult;
   }
-  const botScore = Math.min(scoreResult.score + powPenalty, 100);
+
+  // Two-tier bot IP detection (see beacon.ts for explanation)
+  const botIpPenalty = getBotIpPenalty(ipHash);
+  if (botIpPenalty > 0) {
+    scoreResult.detail.bot_ip = botIpPenalty;
+  }
+
+  const botScore = Math.min(
+    scoreResult.score + powPenalty + botIpPenalty,
+    100,
+  );
   const botScoreDetail = JSON.stringify(scoreResult.detail);
 
   const limit = Math.min(events.length, MAX_EVENTS_PER_REQUEST);

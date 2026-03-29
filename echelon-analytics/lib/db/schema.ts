@@ -47,7 +47,7 @@ export const SCHEMA_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_vv_site_created_clean
     ON visitor_views(site_id, created_at)
-    WHERE bot_score < 50;
+    WHERE bot_score BETWEEN 0 AND 49;
 
   CREATE INDEX IF NOT EXISTS idx_vv_bot_score
     ON visitor_views(bot_score, visitor_id)
