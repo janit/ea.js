@@ -72,8 +72,10 @@ function ipv4ToNum(ip: string): number | null {
   if (parts.length !== 4) return null;
   let n = 0;
   for (const p of parts) {
+    // Reject non-decimal octets (hex "0x10", octal "010", empty, whitespace)
+    if (!/^\d+$/.test(p)) return null;
     const v = parseInt(p, 10);
-    if (isNaN(v) || v < 0 || v > 255) return null;
+    if (v < 0 || v > 255) return null;
     n = ((n << 8) | v) >>> 0;
   }
   return n;

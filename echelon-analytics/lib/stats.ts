@@ -133,28 +133,33 @@ export async function getOverview(
   days: number = 30,
 ) {
   const cutoff = daysAgoUTC(days);
+  const today = new Date().toISOString().slice(0, 10);
 
+  // Exclude today from rollup queries to prevent double-counting when
+  // today's rollup already exists (e.g. via manual rollup or retry).
   const totals = await db.queryOne<{
     visits: number;
     avg_interaction_ms: number;
   }>(
     `SELECT COALESCE(SUM(visits), 0) AS visits,
             COALESCE(CAST(AVG(avg_interaction_ms) AS INTEGER), 0) AS avg_interaction_ms
-     FROM visitor_views_daily WHERE site_id = ? AND date >= ?`,
+     FROM visitor_views_daily WHERE site_id = ? AND date >= ? AND date < ?`,
     siteId,
     cutoff,
+    today,
   );
 
   const rollupVisitors = await db.queryOne<{ unique_visitors: number }>(
     `SELECT COALESCE(SUM(uv), 0) AS unique_visitors
      FROM (SELECT date, MAX(unique_visitors) AS uv
-           FROM visitor_views_daily WHERE site_id = ? AND date >= ?
+           FROM visitor_views_daily WHERE site_id = ? AND date >= ? AND date < ?
            GROUP BY date)`,
     siteId,
     cutoff,
+    today,
   );
 
-  const todayCutoff = new Date().toISOString().slice(0, 10) + "T00:00:00Z";
+  const todayCutoff = today + "T00:00:00Z";
   const todayTotals = await db.queryOne<{
     visits: number;
     unique_visitors: number;

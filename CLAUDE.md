@@ -55,11 +55,11 @@ tagging — so tests gate every release.
 
 ### Runtime & Framework
 
-Deno + Fresh 2.2.0 (file-system routing with Preact islands). Vite 7 for builds.
+Deno + Fresh 2.2.2 (file-system routing with Preact islands). Vite 7 for builds.
 Tailwind CSS v4 configured via `@tailwindcss/vite` plugin (config lives in
 `assets/styles.css`, not a tailwind config file). Dark terminal aesthetic:
-Professional palette (navy/white/red), Inter sans-serif font.
-Alternative themes available: Commodore 64 (`c64`), Bad Boys (`badboys`).
+Professional palette (navy/white/red), Inter sans-serif font. Alternative themes
+available: Commodore 64 (`c64`), Bad Boys (`badboys`).
 
 ### Request Flow
 
@@ -91,11 +91,14 @@ instances that batch-flush to SQLite every 10–15 seconds.
 Single SQLite database (WAL mode). No ORM — raw SQL queries throughout. Writes
 are batched via `BufferedWriter` (generic class in `lib/buffered-writer.ts`).
 Two writers: one for `visitor_views`, one for `semantic_events`. The `stop()`
-method drains any remaining buffered records before shutdown. Daily rollup at
-03:00 UTC aggregates raw views into `visitor_views_daily` (using INSERT OR
-IGNORE to preserve existing rollup data) and purges old data (90-day default
-retention, configurable separately for bot-scored data via
-`ECHELON_BOT_RETENTION_DAYS`).
+method drains any remaining buffered records before shutdown; on total flush
+failure it logs a CRITICAL message with the exact record count and clears the
+buffer. Daily rollup at 03:00 UTC aggregates raw views into
+`visitor_views_daily` (using INSERT OR REPLACE so re-rollups after bot
+correlator corrections update stale aggregates) and purges old data (90-day
+default retention, configurable separately for bot-scored data via
+`ECHELON_BOT_RETENTION_DAYS`). Purge covers all bot_score ranges including
+negative values (server-ingested events use bot_score=-1).
 
 ### Authentication
 
@@ -127,22 +130,33 @@ Multi-layer detection with synchronous and asynchronous components:
    ID, fingerprint: OS/browser/version/screen/country/Accept-Language). The
    sweep clusters identical fingerprints across distinct IPs on the same site.
    Clusters ≥ 6 IPs (≥ 4 if any is confirmed bot) get retroactive bot_score
-   updates in the DB (+30 normal, +50 for large/tainted clusters). Confirmed IPs
-   are fed back into the confirmed bot IP map for immediate scoring.
+   updates in the DB (+30 normal, +50 for large/tainted clusters), wrapped in a
+   transaction for atomicity across `visitor_views` and `semantic_events`.
+   Confirmed IPs are fed back into the confirmed bot IP map for immediate
+   scoring.
 5. **PoW challenges** — `lib/tracker.ts` generates `/ea.js` with an embedded
    WASM blob (rotates every 6 hours) and per-minute PoW challenges. Missing,
-   invalid, or replayed tokens add penalty points.
+   invalid, or replayed tokens add penalty points. The nonce cache keys on
+   `tok:sid:siteId` to prevent cross-site token replay on multi-tenant
+   instances.
 6. **Heuristic scoring** — `lib/bot-score.ts` scores every request using timing,
    geo, headers, burst detection, screen dimensions, Cloudflare signals. Scores
    ≥ 50 are excluded from rollups.
+7. **No-event bounce detection** — during each correlator sweep, `visitor_views`
+   records aged 5–30 minutes with zero matching `semantic_events` receive +15
+   penalty. Real users trigger scroll, click, hover, or web vital events within
+   seconds; bots that hit-and-leave do not.
 
 ### API Validation
 
 API endpoints use `validateSiteIdStrict()` which returns null for invalid site
 IDs (tracking endpoints use the lenient `validateSiteId()` that falls back to
-"default"). Experiments enforce a state machine: draft → active →
-paused/completed, paused → active, completed → archived. Variant weights must be
-finite positive numbers. Error responses follow
+"default"). Campaign creation validates `site_id` with `validateSiteId()` and
+strips control characters from both `name` and `utm_campaign`. Experiments
+enforce a state machine: draft → active → paused/completed, paused → active,
+completed → archived. Status transitions are atomic (`AND status = ?` in the
+UPDATE) to prevent TOCTOU races; concurrent transitions return 409 Conflict.
+Variant weights must be finite positive numbers. Error responses follow
 `{ error: "code", message: "text" }` format.
 
 ### Single-Process Constraint

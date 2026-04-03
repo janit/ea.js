@@ -132,7 +132,7 @@ Deno.test("BufferedWriter — keeps records in buffer on total failure", async (
   writer.push("will-fail");
   await writer.stop(db);
 
-  // Records stay in buffer when all retries fail
-  assertEquals(writer.size, 1);
+  // stop() clears the buffer on total failure (with CRITICAL log)
+  assertEquals(writer.size, 0);
   await db.close();
 });

@@ -24,7 +24,8 @@ function daysAgoUTC(days: number): string {
 /**
  * Aggregate yesterday's visitor_views into visitor_views_daily.
  * Filters: bot_score BETWEEN 0 AND 49, not in excluded_visitors.
- * Idempotent via INSERT OR REPLACE on the composite key.
+ * Idempotent via INSERT OR REPLACE on the composite key — re-rollups
+ * after bot correlator corrections update stale aggregates.
  */
 export async function rollupDay(
   db: DbAdapter,
@@ -39,7 +40,7 @@ export async function rollupDay(
   const start = Date.now();
 
   const result = await db.run(
-    `INSERT OR IGNORE INTO visitor_views_daily
+    `INSERT OR REPLACE INTO visitor_views_daily
       (site_id, date, device_type, country_code, is_returning,
        visits, unique_visitors, avg_interaction_ms)
     SELECT
@@ -109,16 +110,18 @@ export async function purgeExpiredData(
     rawCutoff,
   );
 
-  // Bot data (bot_score >= 50) — separate retention period
+  // Bot data (bot_score >= 50 OR bot_score < 0) — separate retention period.
+  // bot_score < 0 covers server-ingested events (bot_score=-1) which would
+  // otherwise accumulate forever since they match neither the clean nor bot filter.
   const botCutoff = daysAgoUTC(botRetentionDays);
 
   const botViews = await db.run(
-    `DELETE FROM visitor_views WHERE (created_at < (? || 'T00:00:00.000Z')) AND (bot_score >= 50)`,
+    `DELETE FROM visitor_views WHERE (created_at < (? || 'T00:00:00.000Z')) AND (bot_score >= 50 OR bot_score < 0)`,
     botCutoff,
   );
 
   const botEvents = await db.run(
-    `DELETE FROM semantic_events WHERE (created_at < (? || 'T00:00:00.000Z')) AND (bot_score >= 50)`,
+    `DELETE FROM semantic_events WHERE (created_at < (? || 'T00:00:00.000Z')) AND (bot_score >= 50 OR bot_score < 0)`,
     botCutoff,
   );
 

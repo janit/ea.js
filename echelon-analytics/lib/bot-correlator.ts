@@ -40,6 +40,13 @@ const LARGE_CLUSTER = 8; // ≥ 8 = high-confidence bot farm
 const PENALTY_NORMAL = 30; // Moderate cluster
 const PENALTY_LARGE = 50; // Large cluster or headless-confirmed
 
+// No-event bounce detection: visits with zero semantic_events after a
+// settling window are likely bots. Real users trigger scroll_depth,
+// hover, click, or web_vital events within seconds of page load.
+const NO_EVENTS_MIN_AGE_MS = 5 * 60 * 1000; // Wait 5 min before judging
+const NO_EVENTS_MAX_AGE_MS = 30 * 60 * 1000; // Only check recent visits
+const NO_EVENTS_PENALTY = 15; // Moderate — won't cross 50 alone
+
 // ── Ephemeral request print store ───────────────────────────────────────────
 
 /** A fingerprint captures the browser/device identity — fields a bot farm can't easily vary. */
@@ -171,42 +178,43 @@ async function sweep(db: DbAdapter): Promise<void> {
       fingerprint: cluster.fpKeyStr,
     });
 
-    // Update visitor_views: bump score, append correlated detail.
-    // Only update records not already correlated (idempotent).
-    const viewResult = await db.run(
-      `UPDATE visitor_views
-       SET bot_score = MIN(bot_score + ?, 100),
-           bot_score_detail = CASE
-             WHEN bot_score_detail IS NULL THEN ?
-             ELSE json_set(bot_score_detail, '$.correlated', json(?))
-           END
-       WHERE visitor_id IN (${placeholders})
-         AND bot_score BETWEEN 0 AND 49
-         AND (bot_score_detail IS NULL OR bot_score_detail NOT LIKE '%"correlated"%')`,
-      penalty,
-      `{"correlated":${detail}}`,
-      detail,
-      ...visitorIds,
-    );
+    // Update both tables atomically so a crash between them can't leave
+    // visitor_views and semantic_events with inconsistent bot scores.
+    const totalUpdated = await db.transaction(async (tx) => {
+      const viewResult = await tx.run(
+        `UPDATE visitor_views
+         SET bot_score = MIN(bot_score + ?, 100),
+             bot_score_detail = CASE
+               WHEN bot_score_detail IS NULL THEN ?
+               ELSE json_set(bot_score_detail, '$.correlated', json(?))
+             END
+         WHERE visitor_id IN (${placeholders})
+           AND bot_score BETWEEN 0 AND 49
+           AND (bot_score_detail IS NULL OR bot_score_detail NOT LIKE '%"correlated"%')`,
+        penalty,
+        `{"correlated":${detail}}`,
+        detail,
+        ...visitorIds,
+      );
 
-    // Same for semantic_events
-    const eventResult = await db.run(
-      `UPDATE semantic_events
-       SET bot_score = MIN(bot_score + ?, 100),
-           bot_score_detail = CASE
-             WHEN bot_score_detail IS NULL THEN ?
-             ELSE json_set(bot_score_detail, '$.correlated', json(?))
-           END
-       WHERE visitor_id IN (${placeholders})
-         AND bot_score BETWEEN 0 AND 49
-         AND (bot_score_detail IS NULL OR bot_score_detail NOT LIKE '%"correlated"%')`,
-      penalty,
-      `{"correlated":${detail}}`,
-      detail,
-      ...visitorIds,
-    );
+      const eventResult = await tx.run(
+        `UPDATE semantic_events
+         SET bot_score = MIN(bot_score + ?, 100),
+             bot_score_detail = CASE
+               WHEN bot_score_detail IS NULL THEN ?
+               ELSE json_set(bot_score_detail, '$.correlated', json(?))
+             END
+         WHERE visitor_id IN (${placeholders})
+           AND bot_score BETWEEN 0 AND 49
+           AND (bot_score_detail IS NULL OR bot_score_detail NOT LIKE '%"correlated"%')`,
+        penalty,
+        `{"correlated":${detail}}`,
+        detail,
+        ...visitorIds,
+      );
 
-    const totalUpdated = viewResult.changes + eventResult.changes;
+      return viewResult.changes + eventResult.changes;
+    });
     if (totalUpdated > 0) {
       console.log(
         `[echelon] bot-correlator: flagged cluster on ${cluster.siteId} ` +
@@ -218,6 +226,47 @@ async function sweep(db: DbAdapter): Promise<void> {
           `updated=${totalUpdated} records)`,
       );
     }
+  }
+
+  // ── No-event bounce detection ──────────────────────────────────────────
+  // Penalise visits old enough to have generated events but that have none.
+  await penalizeNoEventBounces(db);
+}
+
+/**
+ * Find visitor_views that are 5–30 minutes old with zero semantic_events
+ * and apply a moderate bot score penalty. Idempotent via the
+ * bot_score_detail "no_events" marker.
+ */
+async function penalizeNoEventBounces(db: DbAdapter): Promise<void> {
+  const now = new Date();
+  const minAge = new Date(now.getTime() - NO_EVENTS_MAX_AGE_MS).toISOString();
+  const maxAge = new Date(now.getTime() - NO_EVENTS_MIN_AGE_MS).toISOString();
+
+  const result = await db.run(
+    `UPDATE visitor_views
+     SET bot_score = MIN(bot_score + ?, 100),
+         bot_score_detail = CASE
+           WHEN bot_score_detail IS NULL THEN '{"no_events":true}'
+           ELSE json_set(bot_score_detail, '$.no_events', json('true'))
+         END
+     WHERE created_at >= ? AND created_at <= ?
+       AND bot_score BETWEEN 0 AND 49
+       AND (bot_score_detail IS NULL OR bot_score_detail NOT LIKE '%"no_events"%')
+       AND NOT EXISTS (
+         SELECT 1 FROM semantic_events se
+         WHERE se.visitor_id = visitor_views.visitor_id
+           AND se.site_id = visitor_views.site_id
+       )`,
+    NO_EVENTS_PENALTY,
+    minAge,
+    maxAge,
+  );
+
+  if (result.changes > 0) {
+    console.log(
+      `[echelon] bot-correlator: no-event bounce penalty (+${NO_EVENTS_PENALTY}) applied to ${result.changes} views`,
+    );
   }
 }
 

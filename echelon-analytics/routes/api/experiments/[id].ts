@@ -67,26 +67,42 @@ export const handler = define.handlers({
       );
     }
 
+    // Atomic status transition: AND status = ? prevents TOCTOU races where
+    // concurrent requests both read the same status and both write.
     const now = new Date().toISOString();
+    let result;
     if (status === "active") {
-      await db.run(
-        `UPDATE experiments SET status = ?, started_at = COALESCE(started_at, ?) WHERE experiment_id = ?`,
+      result = await db.run(
+        `UPDATE experiments SET status = ?, started_at = COALESCE(started_at, ?) WHERE experiment_id = ? AND status = ?`,
         status as string,
         now,
         expId,
+        existing.status,
       );
     } else if (status === "completed" || status === "archived") {
-      await db.run(
-        `UPDATE experiments SET status = ?, ended_at = COALESCE(ended_at, ?) WHERE experiment_id = ?`,
+      result = await db.run(
+        `UPDATE experiments SET status = ?, ended_at = COALESCE(ended_at, ?) WHERE experiment_id = ? AND status = ?`,
         status as string,
         now,
         expId,
+        existing.status,
       );
     } else {
-      await db.run(
-        `UPDATE experiments SET status = ? WHERE experiment_id = ?`,
+      result = await db.run(
+        `UPDATE experiments SET status = ? WHERE experiment_id = ? AND status = ?`,
         status as string,
         expId,
+        existing.status,
+      );
+    }
+
+    if (result.changes === 0) {
+      return Response.json(
+        {
+          error: "conflict",
+          message: "Experiment status was modified concurrently, retry",
+        },
+        { status: 409 },
       );
     }
 

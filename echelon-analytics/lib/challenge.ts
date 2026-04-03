@@ -194,13 +194,13 @@ export async function verifyToken(
     return "invalid";
   }
 
-  // Key on tok:sid so the same session can reuse its token across endpoints
-  // (beacon + events) and across pageviews within the same minute bucket.
-  // The WASM solve is deterministic for the same challenge+sid+site, so a
-  // tok:sid hit means "this session already proved its PoW" — that's valid,
-  // not a replay attack. Cross-session replay is impossible because sid is
-  // baked into the WASM input.
-  const nonceKey = tok + ":" + sid;
+  // Key on tok:sid:siteId so the same session can reuse its token across
+  // endpoints (beacon + events) and across pageviews within the same minute
+  // bucket. Including siteId prevents cross-site replay on multi-tenant
+  // instances. The WASM solve is deterministic for the same
+  // challenge+sid+site, so a tok:sid:siteId hit means "this session already
+  // proved its PoW for this site" — that's valid, not a replay attack.
+  const nonceKey = tok + ":" + sid + ":" + siteId;
   evictExpiredTokens(usedTokens.size > MAX_USED_TOKENS * 0.9);
   if (usedTokens.has(nonceKey)) {
     debug("pow", "verifyToken → valid (same session)", {

@@ -52,7 +52,7 @@ export const handler = define.handlers({
         .replace(/\\/g, "")
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(
-          /url[\s\S]*?\(|image[\s\S]*?\(|image-set[\s\S]*?\(|-webkit-image-set[\s\S]*?\(|element[\s\S]*?\(|paint[\s\S]*?\(|@import\b|@font-face\b|@keyframes\b|expression[\s]*\(|behavior[\s]*:|javascript[\s]*:|-moz-binding[\s]*:/gi,
+          /\burl[\s\S]*?\(|\bimage[\s\S]*?\(|\bimage-set[\s\S]*?\(|-webkit-image-set[\s\S]*?\(|\belement[\s\S]*?\(|\bpaint[\s\S]*?\(|@import\b|@font-face\b|@keyframes\b|\bexpression[\s]*\(|\bbehavior[\s]*:|\bjavascript[\s]*:|-moz-binding[\s]*:/gi,
           "/* blocked */",
         )
       : null;

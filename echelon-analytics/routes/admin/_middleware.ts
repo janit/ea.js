@@ -22,7 +22,7 @@ export const handler = define.handlers([
 
     const url = new URL(ctx.req.url);
 
-    // Login/logout pages are always accessible
+    // Login page is always accessible
     if (
       url.pathname === "/admin/login"
     ) {

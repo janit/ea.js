@@ -62,7 +62,13 @@ export class BufferedWriter<T> {
     let prev = this.buffer.length;
     while (this.buffer.length > 0) {
       await this.flush(db);
-      if (this.buffer.length >= prev) break;
+      if (this.buffer.length >= prev) {
+        console.error(
+          `[echelon] CRITICAL: ${this.label} shutdown failed to flush ${this.buffer.length} records — DATA LOST`,
+        );
+        this.buffer.length = 0;
+        break;
+      }
       prev = this.buffer.length;
     }
   }
@@ -94,12 +100,14 @@ export class BufferedWriter<T> {
       } catch (e) {
         if (attempt < MAX_RETRIES) {
           console.warn(
-            `[echelon] ${this.label} flush attempt ${attempt}/${MAX_RETRIES} failed, retrying in ${RETRY_DELAY_MS}ms...`,
+            `[echelon] ${this.label} flush attempt ${attempt}/${MAX_RETRIES} failed, retrying in ${
+              RETRY_DELAY_MS * attempt
+            }ms...`,
           );
           await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
         } else {
           console.error(
-            `[echelon] ${this.label} flush failed after ${MAX_RETRIES} attempts — ${count} records will retry on next cycle:`,
+            `[echelon] ${this.label} flush failed after ${MAX_RETRIES} attempts — ${count} records remain in buffer:`,
             e,
           );
         }

@@ -1,5 +1,6 @@
 import { define } from "../../../utils.ts";
 import { markStale, refreshUtmCampaigns } from "../../../lib/utm.ts";
+import { validateSiteId } from "../../../lib/config.ts";
 
 const ID_RE = /^[a-zA-Z0-9._-]+$/;
 
@@ -45,10 +46,11 @@ export const handler = define.handlers({
       );
     }
 
-    const cName = String(name).slice(0, 256);
+    // deno-lint-ignore no-control-regex
+    const cName = String(name).slice(0, 256).replace(/[\x00-\x1f]/g, "");
     // deno-lint-ignore no-control-regex
     const cUtm = String(utm_campaign).slice(0, 256).replace(/[\x00-\x1f]/g, "");
-    const cSite = site_id ? String(site_id).slice(0, 64) : "default";
+    const cSite = validateSiteId(site_id ? String(site_id) : "default");
 
     try {
       await db.run(
